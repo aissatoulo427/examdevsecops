@@ -220,9 +220,7 @@ n'offrirait pas cette garantie.
 
 | Secret GitHub | Usage |
 |---------------|-------|
-| `SONAR_TOKEN` | Token du projet SonarQube dédié |
-| `SONAR_HOST_URL` | `https://sonar.phenixia.tech` |
-| `SONAR_BASIC_AUTH` | Identifiants Basic Auth nginx (compte `ci-exam` dédié) |
+| `SONAR_TOKEN` | Token d'analyse SonarQube Cloud |
 | `RENDER_DEPLOY_HOOK_URL` | URL du hook, contenant sa propre clé |
 | `GITHUB_TOKEN` | Fourni automatiquement ; publication GHCR |
 
@@ -230,17 +228,17 @@ Règles appliquées : aucun secret dans le dépôt ni dans l'image ; Gitleaks v�
 à chaque exécution ; les secrets liés au déploiement sont portés par un GitHub Environment `production`,
 ce qui les rend inaccessibles aux workflows de pull request — donc à une PR ouverte par un tiers.
 
-### SonarQube
+### SonarQube Cloud
 
-L'instance SonarQube existante (`sonar.phenixia.tech`) est réutilisée. Elle est déjà protégée par une
-double couche : Basic Auth nginx en amont, puis authentification SonarQube.
+L'analyse de qualité est confiée à **SonarQube Cloud**, gratuit pour les dépôts publics.
 
-Un **projet distinct** `examdevsecops-frontend` est créé avec son propre token, afin que l'analyse
-n'interfère pas avec le projet `api-tester` existant. Un compte Basic Auth dédié `ci-exam` est ajouté
-plutôt que de réutiliser un compte existant : si le secret GitHub fuite, une seule ligne est à révoquer
-et l'accès des autres projets n'est pas rompu.
+Une instance auto-hébergée était disponible, mais elle a été écartée pour la même raison que le VPS :
+l'y raccorder aurait imposé de modifier la configuration nginx d'un serveur portant d'autres
+applications en production, et d'ajouter deux secrets supplémentaires à la CI pour franchir son
+Basic Auth. Le service géré supprime ces deux coûts et ramène l'authentification à un seul token.
 
-**Aucune configuration existante du serveur n'est modifiée** hormis l'ajout de ce compte htpasswd.
+**Conséquence : le projet ne dépend d'aucune infrastructure personnelle.** Tout est reproductible par
+un tiers à partir du dépôt seul — c'est ce que le sujet entend par « reproductible ».
 
 ---
 
@@ -335,7 +333,7 @@ parce qu'il ne mesure rien.
 | Services image-backed indisponibles sur l'offre gratuite Render | Moyenne | Vérifié à la création du service ; repli sur un build du Dockerfile par Render, en documentant la perte de garantie sur le digest |
 | Indisponibilité de Fake Store API | Moyenne | Aucun impact sur la CI (MSW) ; l'exécution réelle en dépend, ce qui est documenté comme dépendance externe assumée |
 | Suspension du service gratuit | Faible | Assumée et documentée comme limite mesurée |
-| Instance SonarQube partagée | Faible | Projet et token distincts ; pic mémoire court sur un projet React de petite taille |
+| Dépendance à SonarQube Cloud | Faible | Service géré gratuit pour les dépôts publics ; en cas d'indisponibilité, seule l'étape qualité est bloquée, et le repli documenté est une instance auto-hébergée |
 | JWT exposé côté client | Moyenne | Mémoire plutôt que `localStorage`, CSP restrictive ; limite inhérente à une architecture sans backend, documentée |
 
 ---

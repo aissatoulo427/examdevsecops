@@ -1575,44 +1575,36 @@ git commit -m "feat(docker): ajoute l'image multi-stage durcie servie par nginx"
 
 ---
 
-## Task 7: Configuration SonarQube
+## Task 7: Configuration SonarQube Cloud
+
+Aucune connexion au VPS n'est nécessaire : le projet ne dépend d'aucune infrastructure personnelle.
 
 **Files:**
 - Create: `sonar-project.properties`
 
 **Interfaces:**
 - Consumes: `coverage/lcov.info` produit par `npm run test:coverage`
-- Produces: clé de projet `examdevsecops-frontend`
+- Produces: clé de projet et clé d'organisation SonarQube Cloud, secret `SONAR_TOKEN`
 
-- [ ] **Step 1: Créer le projet dans SonarQube**
+- [ ] **Step 1: Créer le projet sur SonarQube Cloud**
 
-Manuellement, sur `https://sonar.phenixia.tech` (Basic Auth nginx puis authentification SonarQube) :
+Sur `https://sonarcloud.io` :
 
-1. Créer un projet local de clé `examdevsecops-frontend`.
-2. Générer un token d'analyse pour **ce projet uniquement**.
-3. Conserver le token : il sera enregistré dans les secrets GitHub à la Task 8.
+1. Se connecter avec le compte GitHub `aissatoulo427`.
+2. Créer une organisation liée au compte GitHub (plan **Free**, réservé aux dépôts publics).
+3. Analyser le dépôt `examdevsecops`, en choisissant la méthode **GitHub Actions** — SonarQube Cloud affiche alors la clé de projet et la clé d'organisation.
+4. **Désactiver l'analyse automatique** (`Administration → Analysis Method → Automatic Analysis`) : sans cela, elle entre en conflit avec l'analyse lancée par le pipeline et l'une des deux échoue.
+5. Générer un token et le noter — il sera enregistré comme secret GitHub à la Task 8.
 
-Ne pas modifier la configuration du projet `api-tester` existant.
+Relever les deux valeurs exactes affichées, typiquement `aissatoulo427_examdevsecops` et `aissatoulo427`.
 
-- [ ] **Step 2: Créer le compte Basic Auth dédié à la CI**
+- [ ] **Step 2: Écrire la configuration d'analyse**
 
-Sur le VPS, ajouter un compte au fichier htpasswd utilisé par le vhost `sonar.phenixia.tech`, sans toucher aux comptes existants :
-
-```bash
-ssh -i ~/.ssh/vps_deploy root@13.140.162.98
-grep -r auth_basic_user_file /etc/nginx/sites-available/phenixia   # localiser le fichier
-htpasswd /chemin/vers/le/fichier ci-exam                            # SANS -c, qui écraserait le fichier
-nginx -t && systemctl reload nginx
-```
-
-Le drapeau `-c` est absent volontairement : il recrée le fichier et supprimerait les comptes existants, coupant l'accès de `api-tester`.
-
-- [ ] **Step 3: Écrire la configuration d'analyse**
-
-Écrire `sonar-project.properties` :
+Écrire `sonar-project.properties`, en remplaçant les deux clés par les valeurs relevées au Step 1 :
 
 ```properties
-sonar.projectKey=examdevsecops-frontend
+sonar.projectKey=aissatoulo427_examdevsecops
+sonar.organization=aissatoulo427
 sonar.projectName=Exam DevSecOps - Frontend E-Commerce
 
 sonar.sources=src
@@ -1624,26 +1616,24 @@ sonar.javascript.lcov.reportPaths=coverage/lcov.info
 sonar.sourceEncoding=UTF-8
 ```
 
-- [ ] **Step 4: Vérifier l'analyse localement**
+`sonar.organization` est propre à SonarQube Cloud : une instance auto-hébergée ne le demande pas, mais le service géré refuse l'analyse sans lui.
+
+- [ ] **Step 3: Vérifier la configuration**
 
 ```bash
 npm run test:coverage
-docker run --rm \
-  -e SONAR_HOST_URL="https://sonar.phenixia.tech" \
-  -e SONAR_TOKEN="<le token du projet>" \
-  -v "$(pwd):/usr/src" \
-  sonarsource/sonar-scanner-cli
+ls coverage/lcov.info
 ```
 
-Si nginx renvoie 401, ajouter les identifiants Basic Auth à l'URL ou via l'en-tête approprié, selon la configuration relevée au Step 2.
+Expected: le fichier `coverage/lcov.info` existe — c'est lui que SonarQube Cloud lira pour afficher la couverture.
 
-Expected: l'analyse apparaît dans SonarQube sous `examdevsecops-frontend`.
+L'analyse elle-même sera exécutée par le pipeline à la Task 8 ; il n'est pas utile de lancer le scanner à la main.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add sonar-project.properties
-git commit -m "chore(sonar): ajoute la configuration d'analyse du projet"
+git commit -m "chore(sonar): ajoute la configuration d'analyse SonarQube Cloud"
 ```
 
 ---
@@ -1663,9 +1653,7 @@ Dans `Settings → Secrets and variables → Actions` du dépôt :
 
 | Nom | Valeur |
 |-----|--------|
-| `SONAR_TOKEN` | Token du projet `examdevsecops-frontend` |
-| `SONAR_HOST_URL` | `https://sonar.phenixia.tech` |
-| `SONAR_BASIC_AUTH` | `ci-exam:<mot de passe choisi>` |
+| `SONAR_TOKEN` | Token généré sur SonarQube Cloud à la Task 7 |
 
 - [ ] **Step 2: Résoudre les SHA des actions**
 
@@ -1747,11 +1735,10 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
 
-      - name: Analyse SonarQube
+      - name: Analyse SonarQube Cloud
         uses: SonarSource/sonarqube-scan-action@<SHA_SONAR>
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
   image:
     name: Build, scan et publication
@@ -2335,4 +2322,6 @@ git push
 
 **Cohérence des types :** `CartItem`, `CartState`, `CartAction`, `Product`, `ApiError` sont définis en Tasks 2 et 3, et consommés sous les mêmes noms en Tasks 4 et 5. `signIn` désigne la même opération dans `authService` et dans `useAuth`, ce dernier l'enveloppant pour renvoyer `void` plutôt que le token — le token ne doit pas circuler dans l'arbre de composants.
 
-**Points nécessitant une résolution à l'exécution** (impossible à figer dans le plan, avec la commande fournie à chaque fois) : digests des images de base (Task 6 Step 1), SHA des actions GitHub (Task 8 Step 2), disponibilité des services image-backed sur l'offre gratuite Render (Task 9 Step 2), emplacement du fichier htpasswd (Task 7 Step 2).
+**Points nécessitant une résolution à l'exécution** (impossible à figer dans le plan, avec la commande ou la marche à suivre fournie à chaque fois) : digests des images de base (Task 6 Step 1), SHA des actions GitHub (Task 8 Step 2), clés de projet et d'organisation SonarQube Cloud (Task 7 Step 1), disponibilité des services image-backed sur l'offre gratuite Render (Task 9 Step 2).
+
+**Aucune tâche ne se connecte au VPS.** L'application est déployée sur Render, l'analyse de qualité est confiée à SonarQube Cloud, et la stack d'observabilité s'exécute en local.
