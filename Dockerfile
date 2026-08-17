@@ -11,6 +11,15 @@ RUN npm run build
 
 FROM nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de AS runtime
 
+# Applique les correctifs Alpine publies depuis la construction de l'image de
+# base. Celle-ci n'est reconstruite qu'a intervalles espaces : sans cette
+# etape, elle embarque des paquets systeme (openssl, curl, expat...) dont les
+# correctifs existent deja en amont, et le scan Trivy bloque la publication.
+#
+# Compromis assume : la version exacte des paquets depend de la date de build,
+# ce qui affaiblit la reproductibilite bit a bit au profit de la securite.
+RUN apk --no-cache upgrade
+
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 
