@@ -67,6 +67,36 @@ button:disabled {
   font-weight: 600;
 }
 
+.disposition {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 2rem;
+  align-items: start;
+}
+
+/* En dessous de 60rem, le panneau repasse sous le catalogue : une colonne de
+   20rem y deviendrait illisible. */
+@media (max-width: 60rem) {
+  .disposition {
+    grid-template-columns: 1fr;
+  }
+
+  .panneau-panier {
+    position: static;
+  }
+}
+
+.panneau-panier {
+  position: sticky;
+  top: 1.5rem;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0 1rem 1rem;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+}
+
 .grille {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
@@ -115,4 +145,16 @@ li {
 
 li input {
   width: 4.5rem;
+}
+
+/* Dans un panneau de 20rem, la ligne d'article doit passer a plusieurs
+   lignes : le titre occupe toute la largeur, quantite et retrait dessous. */
+.panneau-panier li {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.panneau-panier li > span {
+  flex: 1 1 100%;
+  font-weight: 600;
 }

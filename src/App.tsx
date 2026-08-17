@@ -11,8 +11,14 @@ export default function App() {
       <CartProvider>
         <Layout>
           <RequireAuth>
-            <CatalogPage />
-            <CartPage />
+            <div className="disposition">
+              <CatalogPage />
+              {/* Le panier reste visible pendant la navigation : sous le
+                  catalogue, il se retrouvait hors ecran des le premier ajout. */}
+              <aside className="panneau-panier">
+                <CartPage />
+              </aside>
+            </div>
           </RequireAuth>
         </Layout>
       </CartProvider>
