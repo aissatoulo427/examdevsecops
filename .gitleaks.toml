@@ -1,0 +1,29 @@
+# Configuration Gitleaks.
+#
+# On etend le jeu de regles par defaut plutot que de le remplacer : une
+# configuration ecrite de zero perdrait silencieusement les centaines de
+# regles maintenues en amont.
+[extend]
+useDefault = true
+
+[allowlist]
+description = """
+Faux positifs assumes, exclus par valeur exacte et non par chemin de fichier.
+
+1. aissatoulo427_examdevsecops : cle de projet SonarQube Cloud. La regle
+   generic-api-key la signale a cause de son entropie, mais ce n'est pas un
+   secret : elle est publique, doit etre versionnee pour que le scanner la
+   lise, et se recupere anonymement via l'API SonarCloud.
+
+2. mor_2314 / 83r5^_ : identifiants de demonstration publics fournis par Fake
+   Store API et documentes dans son site. Ils n'ouvrent l'acces a aucune
+   donnee reelle et servent aux tests comme au README.
+
+L'exclusion porte sur ces chaines precises : un vrai secret depose dans les
+memes fichiers resterait detecte.
+"""
+regexes = [
+  '''aissatoulo427_examdevsecops''',
+  '''mor_2314''',
+  '''83r5\^_''',
+]
