@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Permissions minimales par defaut : chaque job elargit uniquement ce dont il
+# a besoin. Un jeton trop large est exploitable par n'importe quelle
+# dependance executee pendant le build.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  qualite:
+    name: Qualite et tests
+    runs-on: ubuntu-latest
+    steps:
+      # Toutes les actions sont epinglees par SHA de commit et non par tag :
+      # un tag peut etre redirige vers un autre contenu, un SHA non.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Historique complet : Gitleaks doit inspecter tous les commits, un
+          # secret supprime depuis reste compromis.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installation des dependances
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verification des types
+        run: npm run typecheck
+
+      - name: Tests et couverture
+        run: npm run test:coverage
+
+      - name: Detection de secrets
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan des dependances
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: Analyse SonarQube Cloud
+        uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  image:
+    name: Build, scan et publication
+    needs: qualite
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.publication.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      # L'image est construite localement puis scannee AVANT toute
+      # publication. Publier d'abord et scanner ensuite laisserait une image
+      # vulnerable accessible dans le registre, meme quelques secondes.
+      - name: Construction locale pour analyse
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          load: true
+          tags: examdevsecops:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan de l'image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: examdevsecops:scan
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: Connexion a GHCR
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Reconstruction depuis le cache : les couches sont identiques a celles
+      # qui viennent d'etre scannees.
+      - name: Publication
+        id: publication
+        if: github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
