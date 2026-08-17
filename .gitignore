@@ -3,6 +3,10 @@ dist/
 coverage/
 *.local
 
+# Documents de travail internes (spec et plan d'implémentation).
+# Les livrables de l'examen restent suivis dans docs/.
+docs/superpowers/
+
 .env
 .env.*
 !.env.example
