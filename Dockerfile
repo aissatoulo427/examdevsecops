@@ -25,7 +25,7 @@ COPY --from=build /app/dist /usr/share/nginx/html
 
 # nginx doit pouvoir ecrire ses fichiers temporaires et son pid alors que la
 # racine du conteneur est montee en lecture seule.
-RUN mkdir -p /tmp/nginx && chown -R nginx:nginx /tmp/nginx /usr/share/nginx/html
+RUN mkdir -p /var/cache/nginx && chown -R nginx:nginx /var/cache/nginx /usr/share/nginx/html
 
 USER nginx
 
