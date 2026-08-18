@@ -139,22 +139,28 @@ jobs:
       name: production
       url: ${{ vars.RENDER_APP_URL }}
     steps:
-      # On deploie le digest, pas le tag : entre la publication de :latest et
-      # ce deploiement, le tag pourrait deja designer une autre image. Le
-      # digest est celui que Trivy vient de scanner, et rien d'autre.
-      - name: Declencher le deploiement du digest scanne
+      # Le service Render est adosse au depot Git, pas au registre : il
+      # reconstruit l'image depuis le Dockerfile du commit courant. On ne peut
+      # donc pas lui imposer le digest scanne via imgURL, le hook repond 400.
+      #
+      # Limite assumee, a consigner dans le rapport : l'artefact mis en ligne
+      # n'est pas bit a bit celui que Trivy a scanne, seulement son equivalent
+      # reconstruit depuis la meme source. La barriere de securite tient
+      # malgre tout, puisque ce job ne s'execute que si le scan du job image a
+      # reussi sur ce meme commit.
+      - name: Declencher le deploiement Render
         run: |
           set -euo pipefail
-          digest="${{ needs.image.outputs.digest }}"
-          if [ -z "$digest" ]; then
-            echo "Aucun digest publie par le job image : rien a deployer."
+          hook="${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          if [ -z "$hook" ]; then
+            echo "Le secret RENDER_DEPLOY_HOOK_URL est vide ou inaccessible."
+            echo "Il doit exister sous ce nom exact dans l'environnement 'production',"
+            echo "en tant que secret et non en tant que variable."
             exit 1
           fi
-          image="ghcr.io/${{ github.repository }}@${digest}"
-          echo "Deploiement de ${image}"
-          code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
-            --get "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" \
-            --data-urlencode "imgURL=${image}")
+          echo "Commit deploye : ${{ github.sha }}"
+          echo "Image equivalente scannee et publiee : ghcr.io/${{ github.repository }}@${{ needs.image.outputs.digest }}"
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$hook")
           if [ "$code" != "200" ]; then
             echo "Le deploy hook a repondu ${code}."
             exit 1
@@ -163,14 +169,18 @@ jobs:
       # Un hook accepte est une promesse, pas une mise en ligne : sans cette
       # verification le pipeline serait vert alors que le service est casse,
       # exactement le cas rencontre avec les chemins temporaires nginx.
+      #
+      # Ce que la sonde prouve : le service repond 200. Ce qu'elle ne prouve
+      # pas : qu'il s'agit bien de la nouvelle version, l'ancienne restant en
+      # ligne pendant la reconstruction. Le distinguer demanderait une route
+      # exposant le commit deployé.
       - name: Attendre la mise en ligne puis verifier
         run: |
           set -euo pipefail
-          # Pause avant la premiere sonde : l'ancienne instance repond encore
-          # 200 pendant quelques secondes, et la sonder tout de suite validerait
-          # la version precedente au lieu de la nouvelle.
-          sleep 45
-          for tentative in $(seq 1 30); do
+          # Render reconstruit l'image avant de la mettre en ligne : sonder
+          # tout de suite ne mesurerait que l'etat d'avant le deploiement.
+          sleep 90
+          for tentative in $(seq 1 40); do
             code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 90 \
               "${{ vars.RENDER_APP_URL }}/healthz" || echo "000")
             echo "Tentative ${tentative} : HTTP ${code}"
