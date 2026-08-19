@@ -13,6 +13,7 @@
 \usepackage{lmodern}
 \usepackage[a4paper,margin=2.4cm]{geometry}
 
+\usepackage{amssymb}
 \usepackage{graphicx}
 \graphicspath{{../captures/}{./}{captures/}}
 
@@ -68,6 +69,19 @@
 % faux dans du code, ou cela produirait « @sha256 :... ». On desactive donc
 % ces raccourcis a l'interieur des fragments techniques uniquement.
 \newcommand{\code}[1]{{\shorthandoff{:;!?}\texttt{#1}}}
+
+% Pastille de gain. Les quatre categories sont exactement celles du sujet :
+% vitesse, fiabilite, cout, securite.
+\newcommand{\pastille}[2]{%
+  \colorbox{#1}{\color{white}\scriptsize\bfseries\strut #2}}
+\newcommand{\gVitesse}{\pastille{bleuFonce}{VITESSE}}
+\newcommand{\gFiabilite}{\pastille{vertOk}{FIABILITÉ}}
+\newcommand{\gSecurite}{\pastille{rougeAlerte}{SÉCURITÉ}}
+\newcommand{\gCout}{\pastille{orangeAcc}{COÛT}}
+
+% Marqueur d'etape bloquante
+\newcommand{\bloque}{\textcolor{rougeAlerte}{$\checkmark$}}
+\newcommand{\nonbloque}{\textcolor{grisFonce}{--}}
 
 % Encadre pour les points saillants
 \newcommand{\encadre}[2]{%
@@ -199,6 +213,36 @@ Le dernier objectif est celui qui a le plus modelé l'architecture. Il impose
 que rien de ce qui fait fonctionner la chaîne ne réside en dehors du dépôt :
 ni configuration cachée, ni service à installer manuellement, ni étape
 connue du seul auteur.
+
+% =====================================================================
+\subsection*{Correspondance avec les attendus du sujet}
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}c l l@{}}
+\toprule
+\textbf{N\textsuperscript{o}} & \textbf{Livrable attendu} & \textbf{Où il est traité} \\
+\midrule
+1 & Rapport technique               & Ce document \\
+2 & Diagrammes architecture et chaîne de valeur & Figures des sections 2 et 3 \\
+3 & Dépôt Git : code et configurations & Lien en page de titre \\
+4 & Pipeline CI/CD fonctionnel      & Section 3 · \code{.github/workflows/ci.yml} \\
+5 & Tests automatisés               & Section 5 · \code{src/**/*.test.ts(x)} \\
+6 & Configurations de sécurité      & Section 4 · \code{Dockerfile}, \code{nginx.conf}, \\
+  &                                 & \code{.gitleaks.toml}, \code{sonar-project.properties} \\
+7 & Stratégie d'observabilité       & Section 6 · \code{observability/} \\
+8 & Conclusion : limites et améliorations & Section 7 \\
+\bottomrule
+\end{tabular}
+\caption{Les huit livrables du sujet et leur emplacement}
+\label{tab:livrables}
+\end{table}
+
+Le schéma d'architecture de la section suivante contient les sept éléments
+exigés au minimum par le sujet : utilisateur, frontend conteneurisé, API
+Fake Store, pipeline CI/CD, registre d'images, outils de sécurité et système
+d'observabilité.
 
 % =====================================================================
 \section{Architecture retenue}
@@ -353,50 +397,49 @@ sécurité ; l'étape en vert est celle qui transforme « le pipeline est vert �
 en « l'utilisateur est servi ».}
 \end{figure}
 
-\subsection{Ordre des étapes et gain visé}
+\subsection{Les onze étapes et leur gain}
 
-Les étapes sont ordonnées par \textbf{coût croissant}. Une erreur de syntaxe
-ne doit pas coûter un build d'image pour être découverte.
-
-\begin{longtable}{@{}L{3.2cm} L{2.8cm} L{1.6cm} L{6.0cm}@{}}
-\caption{Les onze étapes et leur justification}\label{tab:etapes}\\
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}l l c l@{}}
 \toprule
-\textbf{Étape} & \textbf{Outil} & \textbf{Bloquant} & \textbf{Gain visé} \\
+\textbf{Étape} & \textbf{Outil} & \textbf{Bloquante} & \textbf{Gain visé} \\
 \midrule
-\endfirsthead
-\toprule
-\textbf{Étape} & \textbf{Outil} & \textbf{Bloquant} & \textbf{Gain visé} \\
-\midrule
-\endhead
+Lint                 & oxlint              & \bloque    & \gVitesse   \\
+Vérification des types & \texttt{tsc}      & \bloque    & \gFiabilite \\
+Tests et couverture  & Vitest + MSW        & \bloque    & \gFiabilite \\
+Détection de secrets & Gitleaks            & \bloque    & \gSecurite  \\
+Scan des dépendances & Trivy \texttt{fs}   & \bloque    & \gSecurite  \\
+Qualité et SAST      & SonarQube           & \bloque    & \gFiabilite \\
+Construction image   & Buildx + cache      & \bloque    & \gCout      \\
+Scan de l'image      & Trivy \texttt{image} & \bloque   & \gSecurite  \\
+Publication          & GHCR                & \nonbloque & \gSecurite  \\
+Déploiement          & Deploy hook         & \bloque    & \gVitesse   \\
+Vérification en ligne & \texttt{curl /healthz} & \bloque & \gFiabilite \\
 \bottomrule
-\endlastfoot
-Lint & oxlint & oui &
-\textit{Vitesse} — les défauts évidents sortent en secondes et ne consomment plus de temps de revue humaine. \\
-Vérification des types & \texttt{tsc} & oui &
-\textit{Fiabilité} — toute une classe d'erreurs d'exécution devient impossible à fusionner. \\
-Tests + couverture & Vitest, MSW & oui &
-\textit{Fiabilité} — le seuil empêche la couverture du cœur métier de se dégrader silencieusement. \\
-Détection de secrets & Gitleaks & oui &
-\textit{Sécurité} — un secret publié est compromis ; c'est le seul défaut qu'un correctif ultérieur ne rattrape pas. \\
-Scan des dépendances & Trivy \texttt{fs} & oui &
-\textit{Sécurité} — l'essentiel du code livré vient de \texttt{node\_modules}, pas du dépôt. \\
-Qualité et SAST & SonarQube & oui &
-\textit{Fiabilité} — une règle objective et non négociable remplace un avis en revue. \\
-Construction de l'image & Buildx + cache & oui &
-\textit{Vitesse} — le cache évite de repayer les couches inchangées. \\
-Scan de l'image & Trivy \texttt{image} & oui &
-\textit{Sécurité} — couvre les paquets système de l'image de base, invisibles au scan précédent. \\
-Publication & GHCR & — &
-\textit{Traçabilité} — chaque image porte le SHA du commit dont elle est issue. \\
-Déploiement & Deploy hook & oui &
-\textit{Vitesse} — plus aucune étape manuelle entre la fusion et la mise en ligne. \\
-Vérification & \texttt{curl /healthz} & oui &
-\textit{Fiabilité} — sans elle, le pipeline serait vert alors que le service est cassé. \\
-\end{longtable}
+\end{tabular}
+\caption{Les onze étapes du pipeline. Les catégories de gain sont celles du
+sujet : vitesse, fiabilité, coût, sécurité.}
+\label{tab:etapes}
+\end{table}
 
-Les deux dernières étapes ne s'exécutent que depuis la branche principale :
-une pull request est contrôlée de bout en bout, mais ne publie ni ne déploie
-rien.
+\textbf{Pourquoi cet ordre.} Les étapes sont classées par coût croissant :
+une erreur de syntaxe ne doit pas coûter un build d'image pour être
+découverte. Le lint et les types répondent en secondes ; les tests demandent
+l'installation des dépendances mais restent hors réseau ; le build d'image
+n'intervient qu'une fois la source entièrement validée.
+
+\textbf{Pourquoi ces barrières.} La détection de secrets précède tout ce qui
+publie : un secret publié est compromis, c'est le seul défaut qu'un
+correctif ultérieur ne rattrape pas. Les deux scans Trivy sont
+complémentaires et non redondants — le premier voit les dépendances du
+projet, le second les paquets système de l'image de base.
+
+\textbf{Ce qui n'est pas bloquant.} Seule la publication ne l'est pas : elle
+n'est pas un contrôle mais une conséquence. Les deux dernières étapes ne
+s'exécutent que depuis la branche principale — une pull request est
+contrôlée de bout en bout, mais ne publie ni ne déploie rien.
 
 \subsection{Trois points d'implémentation}
 
@@ -424,15 +467,14 @@ vert.
 % =====================================================================
 
 La sécurité n'est pas une étape du pipeline, c'est une propriété qui doit
-tenir à quatre niveaux distincts. Chacun a ses défaillances propres,
-qu'aucun des trois autres ne rattrape.
+tenir à quatre niveaux. Chacun a ses défaillances propres, qu'aucun des
+trois autres ne rattrape.
 
 \subsection{Niveau 1 — le code}
 
-SonarQube Cloud analyse chaque exécution et applique une Quality Gate
-bloquante : bugs, \textit{code smells}, vulnérabilités et duplication.
-\texttt{oxlint} et la vérification des types complètent en amont, sur un
-registre différent.
+SonarQube Cloud applique une Quality Gate bloquante : bugs, \textit{code
+smells}, vulnérabilités, duplication. \texttt{oxlint} et la vérification des
+types complètent en amont.
 
 Le point important n'est pas l'outil mais le caractère \textbf{bloquant} de
 la porte. Un rapport de qualité consultatif est lu les premières semaines
@@ -441,96 +483,90 @@ tienne dans la durée.
 
 \subsection{Niveau 2 — les secrets}
 
-Trois secrets seulement, et aucun dans le dépôt.
-
 \begin{table}[htbp]
 \centering
 \small
-\begin{tabularx}{\linewidth}{@{}L{4.4cm} L{3.4cm} X@{}}
+\begin{tabular}{@{}l l l@{}}
 \toprule
 \textbf{Secret} & \textbf{Portée} & \textbf{Usage} \\
 \midrule
-\texttt{SONAR\_TOKEN} & dépôt & Analyse SonarQube Cloud \\
-\texttt{RENDER\_DEPLOY\_} \texttt{HOOK\_URL} & environnement \texttt{production} & Déclenchement du déploiement \\
-\texttt{GITHUB\_TOKEN} & fourni par tâche & Publication sur GHCR \\
+\texttt{SONAR\_TOKEN}            & dépôt                      & Analyse SonarQube \\
+\texttt{RENDER\_DEPLOY\_HOOK\_URL} & environnement \texttt{production} & Déclenchement du déploiement \\
+\texttt{GITHUB\_TOKEN}           & fourni par tâche           & Publication sur GHCR \\
 \bottomrule
-\end{tabularx}
-\caption{Inventaire complet des secrets}
+\end{tabular}
+\caption{Inventaire complet des secrets : trois, aucun dans le dépôt}
 \end{table}
 
-La configuration Gitleaks \textbf{étend} le jeu de règles par défaut au lieu
-de le remplacer : une configuration écrite de zéro perdrait silencieusement
-les centaines de règles maintenues en amont, et une régression silencieuse
-dans un outil de sécurité est pire que son absence.
-
-Deux exclusions sont déclarées, \textbf{par valeur exacte et non par chemin
-de fichier} : la clé de projet SonarQube, publique par nature et qui doit
-être versionnée pour que le scanner la lise, et les identifiants de
-démonstration de la Fake Store API, publics et documentés par l'API
-elle-même. Exclure par chemin aurait créé des zones aveugles permanentes ;
-avec une exclusion par valeur, un véritable secret déposé dans ces mêmes
+\textbf{Gitleaks étend le jeu de règles par défaut} au lieu de le remplacer :
+une configuration écrite de zéro perdrait silencieusement les centaines de
+règles maintenues en amont, et une régression silencieuse dans un outil de
+sécurité est pire que son absence. Les deux exclusions déclarées le sont
+\textbf{par valeur exacte et non par chemin} — exclure un fichier créerait
+une zone aveugle permanente, alors qu'un vrai secret déposé dans ces mêmes
 fichiers reste détecté.
 
-Le secret de déploiement est porté par un \textbf{environnement GitHub}, et
-non par le dépôt. La différence est de nature : une pull request, y compris
-ouverte depuis un fork par un tiers, ne peut ni le lire ni déclencher de
-déploiement. Sans cela, un contributeur extérieur pourrait exfiltrer l'URL
-du hook par une simple modification du workflow.
+\textbf{Le secret de déploiement est porté par un environnement GitHub}, non
+par le dépôt. La différence est de nature : une pull request, même ouverte
+depuis un fork, ne peut ni le lire ni déclencher de déploiement. Sans cela,
+un contributeur extérieur exfiltrerait l'URL du hook par une simple
+modification du workflow.
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\linewidth]{gitleaks-blocage.png}
 \caption{Détection de secrets bloquant le pipeline. Toutes les étapes
-antérieures sont vertes ; l'échec de Gitleaks interrompt la tâche et la
-publication de l'image n'est jamais atteinte.}
+antérieures sont vertes ; l'échec interrompt la tâche et la publication de
+l'image n'est jamais atteinte.}
 \end{figure}
 
 \subsection{Niveau 3 — la chaîne d'approvisionnement}
 
-C'est le niveau le plus souvent négligé, et celui où une compromission est
-la plus difficile à détecter, puisque le code du dépôt reste inchangé.
+Le niveau le plus souvent négligé, et celui où une compromission est la plus
+difficile à détecter : le code du dépôt reste inchangé.
 
-\begin{itemize}
-  \item \textbf{Images de base épinglées par digest} (\code{@sha256:...})
-        et non par tag. Un tag peut être redirigé vers un autre contenu ; un
-        digest est une empreinte cryptographique immuable.
-  \item \textbf{Actions GitHub épinglées par SHA de commit}, pour la même
-        raison. Une action tierce s'exécute avec l'accès au dépôt et aux
-        secrets de la tâche : c'est du code de confiance, il doit être figé
-        comme tel.
-  \item \texttt{npm ci} et non \texttt{npm install}, pour installer
-        strictement ce que verrouille \texttt{package-lock.json}.
-  \item \textbf{Trivy à deux endroits}, sur le système de fichiers et sur
-        l'image : le premier couvre les dépendances npm, le second les
-        paquets système de l'image de base.
-  \item \textbf{Permissions minimales} — lecture seule par défaut au niveau
-        du workflow, écriture de paquets uniquement sur la tâche qui publie.
-  \item \textbf{Concurrence limitée}, pour qu'une exécution ancienne ne
-        puisse pas déployer par-dessus une plus récente.
-\end{itemize}
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}l l@{}}
+\toprule
+\textbf{Mesure} & \textbf{Ce qu'elle empêche} \\
+\midrule
+Images de base épinglées par digest & Un tag redirigé vers un autre contenu \\
+Actions épinglées par SHA de commit & Le même détournement, côté CI \\
+\texttt{npm ci} plutôt que \texttt{npm install} & Une version non verrouillée \\
+Trivy sur la source \emph{et} sur l'image & Deux surfaces distinctes, aucune seule suffisante \\
+Permissions minimales par tâche & Un jeton large exploité par une dépendance \\
+Concurrence limitée & Une exécution ancienne déployant après une récente \\
+\bottomrule
+\end{tabular}
+\caption{Six mesures contre la compromission de la chaîne d'approvisionnement}
+\end{table}
+
+Une action tierce s'exécute avec l'accès au dépôt et aux secrets de la
+tâche : c'est du code de confiance, il doit être figé comme tel.
 
 \encadre{Un compromis assumé}{%
-L'étape d'exécution applique les correctifs système publiés depuis la
-construction de l'image de base. Sans cela, l'image épinglée embarque des
-paquets dont les correctifs existent déjà en amont, et le scan bloque la
-publication. Cette instruction \textbf{affaiblit la reproductibilité bit à
-bit} — la version exacte des paquets dépend de la date de construction — au
-profit de l'application effective des correctifs. Entre une image
-parfaitement reproductible et vulnérable, et une image corrigée dont
-l'empreinte varie, le second terme a été retenu.}
+L'image applique les correctifs système publiés depuis la construction de
+l'image de base — sans quoi le scan bloque la publication pour des
+vulnérabilités déjà corrigées en amont. Cela \textbf{affaiblit la
+reproductibilité bit à bit}, la version des paquets dépendant de la date de
+build. Entre une image reproductible et vulnérable et une image corrigée
+dont l'empreinte varie, le second terme a été retenu.}
 
 \subsection{Niveau 4 — l'exécution}
 
-L'image est durcie par construction : exécution \textbf{non-root}, écoute
-sur le port 8080 puisqu'un processus non privilégié ne peut se lier sous
-1024, système de fichiers racine en \textbf{lecture seule},
-\texttt{no-new-privileges}, abandon de toutes les capacités, et un
-\texttt{.dockerignore} qui empêche tout fichier d'environnement d'entrer
-dans le contexte de build.
+\begin{itemize}
+  \item Exécution \textbf{non-root}, sur le port 8080 — un processus non
+        privilégié ne peut se lier sous 1024.
+  \item Système de fichiers racine en \textbf{lecture seule},
+        \texttt{no-new-privileges}, abandon de toutes les capacités.
+  \item \texttt{.dockerignore} empêchant tout fichier d'environnement
+        d'entrer dans le contexte de build.
+  \item Cinq en-têtes de sécurité servis par nginx.
+\end{itemize}
 
-Au niveau du navigateur, nginx sert cinq en-têtes de sécurité. Le plus
-significatif est la \textit{Content-Security-Policy}, dont la directive
-\texttt{connect-src} n'autorise que l'origine et la Fake Store API :
+Le plus significatif est la \textit{Content-Security-Policy} :
 
 \begin{lstlisting}
 connect-src 'self' https://fakestoreapi.com
@@ -540,14 +576,10 @@ C'est la traduction en politique navigateur d'un fait d'architecture :
 l'application n'a qu'une seule sortie réseau légitime. Un script injecté ne
 pourrait exfiltrer de données vers aucune autre destination.
 
-Enfin, le jeton d'authentification \textbf{ne va jamais dans
-\texttt{localStorage}}. L'état applicatif fait autorité, et
-\texttt{sessionStorage} ne sert qu'à survivre à un rafraîchissement de page.
-Un \texttt{localStorage} survivrait à la fermeture de l'onglet et resterait
-lisible par tout script s'exécutant sur l'origine, bien après la fin de la
-session. Un test dédié vérifie explicitement cette propriété, pour qu'une
-régression future soit signalée par le pipeline plutôt que découverte en
-production.
+Enfin, le jeton \textbf{ne va jamais dans \texttt{localStorage}} — celui-ci
+survivrait à la fermeture de l'onglet et resterait lisible par tout script
+sur l'origine. Un test dédié vérifie cette propriété, pour qu'une régression
+soit signalée par le pipeline plutôt que découverte en production.
 
 % =====================================================================
 \section{Stratégie de test}
@@ -616,121 +648,100 @@ non reproductibles.
 \section{Observabilité}
 % =====================================================================
 
-La pile est livrée \textit{as-code} et démarre par une seule commande, sur
-n'importe quelle machine. Sources de données et tableau de bord sont
-\textbf{provisionnés automatiquement} : aucune création à la souris, donc un
-résultat identique partout — c'est ce qui la rend reproductible.
+La pile est livrée \textit{as-code} et démarre par une seule commande.
+Sources de données et tableau de bord sont provisionnés automatiquement :
+aucune création à la souris, donc un résultat identique sur n'importe quelle
+machine.
 
-\subsection{Ce qui est mesuré, et pourquoi}
+\subsection{Les quatre indicateurs}
 
 \begin{table}[htbp]
 \centering
-\begin{tabularx}{\linewidth}{@{}l X@{}}
+\small
+\begin{tabular}{@{}l l l@{}}
 \toprule
-\textbf{Indicateur} & \textbf{Ce qu'il répond} \\
+\textbf{Indicateur} & \textbf{Question posée} & \textbf{Action déclenchée} \\
 \midrule
-Disponibilité & Le service a-t-il répondu, et dans quelle proportion du temps sur 24~heures ? \\
-Latence par phase & Répond-il vite, et \textbf{où} part le temps quand ce n'est pas le cas ? \\
-Validité TLS & Combien de jours avant l'expiration du certificat ? \\
-Code de réponse & Répond-il, mais mal ? \\
+Disponibilité      & A-t-il répondu ?              & Consulter les journaux \\
+Latence par phase  & Où part le temps ?            & Cibler DNS, TLS ou applicatif \\
+Validité TLS       & Combien de jours restants ?   & Planifier le renouvellement \\
+Code de réponse    & Répond-il, mais mal ?         & Séparer panne applicative et infra \\
 \bottomrule
-\end{tabularx}
+\end{tabular}
 \caption{Quatre indicateurs, quatre actions distinctes}
 \end{table}
 
-Le choix de ces quatre-là plutôt que d'une batterie plus fournie tient à un
-critère unique : \textbf{chacun débouche sur une action différente}. Une
-métrique qui ne débouche sur aucune action distincte n'est pas un
-indicateur, c'est du bruit — et le bruit est ce qui entraîne une équipe à
-ignorer ses propres alertes.
-
-La latence découpée par phase mérite une mention particulière. Un temps de
-réponse global ne dit pas quoi corriger : le même chiffre peut venir d'une
-résolution de nom lente, d'une négociation TLS coûteuse ou d'une application
-lente. Trois causes, trois remèdes.
+Le critère de sélection est unique : \textbf{chacun débouche sur une action
+différente}. Une métrique qui n'en déclenche aucune n'est pas un indicateur,
+c'est du bruit — et le bruit entraîne une équipe à ignorer ses propres
+alertes. La latence est découpée par phase parce qu'un temps global ne dit
+pas quoi corriger : le même chiffre peut venir du DNS, de TLS ou de
+l'application.
 
 \subsection{Pourquoi une sonde externe}
 
-Une sonde interne mesure « le processus tourne ». C'est utile à
-l'ordonnanceur, qui doit décider de redémarrer ou non le conteneur, et
-l'image en contient une pour cette raison. Mais ce n'est pas ce que vit
-l'utilisateur.
+Une sonde interne mesure « le processus tourne » — utile à l'ordonnanceur,
+et l'image en contient une pour cette raison. Mais entre le processus et le
+navigateur il y a le DNS, TLS, le routage de la plateforme et sa mise en
+veille : \textbf{chacun peut casser alors que le processus va parfaitement
+bien}. Une sonde interne serait alors verte pendant que le service est
+inutilisable — le pire cas, puisqu'elle produit de la confiance sans la
+justifier. La sonde externe a un second mérite : elle ne demande aucune
+modification de l'application, donc aucune surface d'attaque ajoutée ni
+dépendance supplémentaire à scanner.
 
-Entre le processus et le navigateur, il y a la résolution de nom, la
-terminaison TLS, le routage de la plateforme et sa mise en veille.
-\textbf{Chacun de ces maillons peut casser alors que le processus va
-parfaitement bien.} Une sonde interne serait alors verte pendant que le
-service est inutilisable — le pire cas possible, puisqu'elle produit de la
-confiance sans la justifier.
-
-Un second effet a pesé : une sonde externe \textbf{ne demande aucune
-modification de l'application}. Pas de point de terminaison de métriques à
-exposer, pas de bibliothèque d'instrumentation à embarquer, donc pas de
-surface d'attaque ajoutée ni de dépendance supplémentaire à scanner.
-
-\subsection{Règles d'alerte et choix des seuils}
+\subsection{Règles d'alerte et seuils}
 
 \begin{table}[htbp]
 \centering
-\begin{tabularx}{\linewidth}{@{}l l l X@{}}
+\small
+\begin{tabular}{@{}l l l l@{}}
 \toprule
-\textbf{Alerte} & \textbf{Condition} & \textbf{Durée} & \textbf{Justification du seuil} \\
+\textbf{Alerte} & \textbf{Condition} & \textbf{Durée} & \textbf{Pourquoi ce seuil} \\
 \midrule
-Service indisponible & sonde en échec & 3 min & Six sondes consécutives : une seule peut venir d'un incident réseau côté sonde. \\
-Latence élevée & $>$ 5 s & 5 min & Seuil haut et durée longue : le réveil d'une instance suspendue produit mécaniquement une latence d'ordre minute. \\
-Certificat TLS & $<$ 15 jours & 1 h & Laisse le temps d'intervenir si le renouvellement automatique échoue, sans alerter pendant les rotations normales. \\
+Service indisponible & sonde en échec & 3 min & Six sondes : une seule peut être un aléa réseau \\
+Latence élevée       & $>$ 5 s        & 5 min & Le réveil d'instance produit une latence légitime \\
+Certificat TLS       & $<$ 15 jours   & 1 h   & Marge d'intervention si le renouvellement échoue \\
 \bottomrule
-\end{tabularx}
-\caption{Trois règles, trois arbitrages entre détection tardive et fausse alerte}
+\end{tabular}
+\caption{Trois arbitrages entre détection tardive et fausse alerte}
 \end{table}
 
-Une alerte qui se déclenche pour un comportement attendu finit par être
-filtrée — ce qui neutralise aussi les vraies. C'est ce qui explique la durée
-de cinq minutes sur la latence.
+Chaque seuil arbitre entre détecter trop tard et alerter pour rien. Une
+alerte qui se déclenche sur un comportement attendu finit filtrée — ce qui
+neutralise aussi les vraies.
 
-\subsection{Traitement des logs}
+\subsection{Journaux}
 
-Les journaux d'accès et d'erreur sont écrits sur la sortie standard, comme
-le veut la convention des conteneurs, et consultables nativement dans le
-tableau de bord de la plateforme d'hébergement. Dupliquer cette collecte
-n'apporterait rien au volume d'une application de démonstration, et
-ajouterait un composant à maintenir et à sécuriser.
+Écrits sur la sortie standard selon la convention des conteneurs, ils sont
+consultables nativement dans le tableau de bord de la plateforme. Les
+dupliquer n'apporterait rien au volume d'une application de démonstration.
 
-Le chemin d'évolution reste identifié pour que la décision soit réversible :
-ajouter Loki à la pile, y exporter les journaux, le déclarer comme source de
-données à côté de Prometheus, et corréler dans un même tableau de bord les
-pics de latence et les lignes de journal correspondantes. C'est cette
-dernière étape qui justifierait le coût : aujourd'hui, métriques et journaux
+L'évolution est identifiée pour que la décision reste réversible : ajouter
+Loki à la pile, y exporter les journaux, et corréler dans un même tableau de
+bord les pics de latence et les lignes correspondantes. C'est cette
+corrélation qui justifierait le coût — aujourd'hui, métriques et journaux
 vivent dans deux interfaces distinctes.
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\linewidth]{grafana-disponibilite.png}
 \caption{Tableau de bord alimenté par des sondes réelles : disponibilité sur
-24~heures, temps de réponse décomposé par phase, état de la sonde et jours
-restants avant expiration du certificat.}
+24~heures, temps de réponse par phase, état de la sonde et jours restants
+avant expiration du certificat.}
 \end{figure}
 
 \subsection{Une limite mesurée, et non masquée}
 
-L'offre gratuite suspend le service après quinze minutes sans trafic, avec
-un réveil de l'ordre de la minute. Les sondes l'enregistrent : creux de
-disponibilité et pics de latence, chacun coïncidant avec une reprise
-d'activité.
+L'offre gratuite suspend le service après quinze minutes sans trafic. Les
+sondes l'enregistrent : creux de disponibilité et pics de latence à chaque
+reprise d'activité.
 
-\textbf{Ce n'est pas un défaut à dissimuler.} C'est le premier constat que
-produit une chaîne d'observabilité qui fonctionne réellement, et il est
-traité comme n'importe quel indicateur dégradé : constat chiffré, cause
-identifiée — elle se distingue d'une vraie panne par sa signature — et
-remède connu. Deux remèdes existent : une offre payante, qui supprime la
-suspension ; ou une requête périodique de maintien en éveil, à coût nul mais
-qui fausse l'indicateur, puisqu'il ne mesurerait plus que la sonde
-s'auto-entretient.
-
-Le premier est le bon si le service doit rendre un vrai service ; le second
-achète un tableau de bord vert au prix de la validité de la mesure. La
-limite est donc retenue telle quelle, documentée et mesurée — ce qui vaut
-mieux qu'un tableau de bord toujours vert parce qu'il ne mesure rien.
+\textbf{Ce n'est pas un défaut à dissimuler} : c'est le premier constat que
+produit une chaîne d'observabilité qui fonctionne. Il est traité comme tout
+indicateur dégradé — constat chiffré, cause identifiée par sa signature,
+remède connu. Le contournement par maintien en éveil est écarté : il
+verdirait le tableau de bord au prix de la validité de la mesure.
 
 % =====================================================================
 \section{Conclusion : limites actuelles et améliorations futures}
@@ -741,123 +752,67 @@ en ligne sans intervention manuelle et avec une mise en ligne vérifiée ;
 onze contrôles bloquants la précèdent ; aucun secret ne réside dans le dépôt
 ni dans l'image ; et l'ensemble se rejoue depuis le dépôt seul.
 
-Elle a aussi des limites. Elles sont énoncées ici avec leur remède, parce
-qu'une limite connue et mesurée coûte toujours moins cher qu'une limite
-ignorée.
+Elle a aussi des limites, énoncées ici avec leur remède — une limite connue
+et mesurée coûte toujours moins cher qu'une limite ignorée.
 
-\subsection{L'image déployée n'est pas bit à bit celle qui a été scannée}
+\subsection{La limite principale : l'artefact déployé n'est pas l'artefact scanné}
 
-C'est la limite la plus importante du projet. La conception prévoyait que la
-plateforme tire l'image par son digest, établissant par empreinte
-cryptographique que l'artefact en ligne est exactement celui qui a été
-validé. Le service disponible sur l'offre gratuite est adossé au dépôt Git :
-il reconstruit l'image depuis le \texttt{Dockerfile} du commit courant et
-n'accepte pas qu'on lui impose une image précise.
+La conception prévoyait que la plateforme tire l'image par son digest,
+établissant par empreinte cryptographique que ce qui est en ligne est
+exactement ce qui a été validé. Le service disponible sur l'offre gratuite
+est adossé au dépôt Git : il reconstruit l'image depuis le
+\texttt{Dockerfile} du commit courant et n'accepte pas qu'on lui impose une
+image précise.
 
-Ce qui subsiste : le déploiement ne s'exécute que si le scan a réussi
-\emph{sur ce même commit}, et l'image scannée est publiée sur GHCR, donc
-archivée et vérifiable. Ce qui est perdu : la preuve que l'artefact servi
-est le même objet, et non son équivalent reconstruit depuis la même source.
+\textbf{Ce qui subsiste} — le déploiement ne s'exécute que si le scan a
+réussi \emph{sur ce même commit}, et l'image scannée est publiée sur GHCR,
+donc archivée et vérifiable. \textbf{Ce qui est perdu} — la preuve que
+l'artefact servi est le même objet, et non son équivalent reconstruit depuis
+la même source.
 
-\textbf{Remède} — un service de type \textit{image-backed}, disponible sur
-l'offre payante, restaure le déploiement par digest et rétablit la garantie
-complète, sans autre modification du pipeline.
+C'est la seule limite du projet qui touche à une propriété de sécurité
+démontrable plutôt qu'à un confort d'exploitation. Toutes les autres
+ajoutent de la couverture ; celle-là restaure une preuve. Son remède est
+aussi le plus simple : un service de type \textit{image-backed} rétablit la
+garantie sans autre modification du pipeline.
 
-\subsection{Le service est suspendu après quinze minutes d'inactivité}
+\subsection{Les autres limites}
 
-Conséquence directe de l'offre gratuite, mesurée par les sondes.
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}l l l@{}}
+\toprule
+\textbf{Limite} & \textbf{Conséquence} & \textbf{Remède} \\
+\midrule
+Suspension après 15 min    & Latence de réveil mesurée   & Offre payante \\
+Jeton côté client          & Lisible par script injecté  & Cookie \texttt{HttpOnly} via BFF \\
+Image non signée           & Substitution indétectable   & Cosign \\
+Pas de SBOM                & Réponse lente à une CVE     & Syft \\
+Pas de test E2E            & Parcours cassé non vu       & Playwright, 3 parcours \\
+Pas de retour arrière      & Rollback manuel             & Tâche sur échec de sonde \\
+API tierce sans garantie   & Catalogue vide si panne     & État d'erreur explicite \\
+Panier non persistant      & Perdu au rafraîchissement   & Sérialiser le réducteur \\
+Alertes sans destinataire  & Personne n'est prévenu      & Alertmanager \\
+\bottomrule
+\end{tabular}
+\caption{Limites connues et remède identifié pour chacune}
+\label{tab:limites}
+\end{table}
 
-\textbf{Remède} — une offre payante supprime la suspension. Le contournement
-par maintien en éveil est écarté : il verdirait le tableau de bord au prix
-de la validité de la mesure.
+Trois de ces remèdes ne coûtent que deux étapes de workflow et aucun secret
+supplémentaire : Cosign, Syft et le retour arrière automatique. Deux
+supposent un arbitrage financier — l'offre payante lève à la fois la
+suspension et la limite principale ci-dessus. Le dernier, Alertmanager, est
+reporté pour une raison de principe : il exige un secret de destination,
+donc une configuration que personne ne pourrait rejouer à l'identique depuis
+le dépôt seul.
 
-\subsection{Le jeton d'authentification vit côté client}
+\subsection*{Ce que la chaîne enseigne}
 
-Sans backend, le jeton est nécessairement manipulé par le navigateur. Les
-mitigations appliquées — état applicatif faisant autorité,
-\texttt{sessionStorage} plutôt que \texttt{localStorage}, politique de
-sécurité restrictive — réduisent la fenêtre d'exposition sans la fermer : un
-script injecté s'exécutant sur l'origine peut toujours lire
-\texttt{sessionStorage}.
-
-\textbf{Remède} — un service intermédiaire minimal détenant le jeton dans un
-cookie \texttt{HttpOnly}, \texttt{Secure}, \texttt{SameSite=Strict},
-inaccessible à tout script. Coût : un service supplémentaire à construire,
-scanner, déployer et observer.
-
-\subsection{Ni signature d'image ni inventaire de composants}
-
-Le pipeline scanne l'image mais ne la signe pas, et ne produit pas
-d'inventaire de ses composants. Rien n'empêcherait donc une substitution
-d'image par quelqu'un ayant accès au registre, ni ne permettrait de répondre
-rapidement à « cette image contient-elle la bibliothèque touchée par cette
-vulnérabilité ? ».
-
-\textbf{Remède} — Cosign en signature sans clé, adossée à l'identité du
-pipeline, et Syft pour un SBOM attaché à l'image, avec vérification de la
-signature avant déploiement. Deux étapes de workflow, aucun secret
-supplémentaire.
-
-\subsection{Aucun test de bout en bout}
-
-Les tests couvrent les unités et les composants, mais aucun ne pilote un
-navigateur réel sur l'application construite. Un parcours cassé par une
-modification de routage passerait les contrôles.
-
-\textbf{Remède} — Playwright sur trois parcours seulement : connexion, ajout
-au panier, calcul du total, exécutés contre le conteneur démarré dans la CI.
-Trois scénarios stables valent mieux qu'une suite exhaustive et instable,
-dont les échecs aléatoires finissent par être ignorés.
-
-\subsection{Aucun retour arrière automatique}
-
-Si une version déployée passe tous les contrôles mais se révèle défaillante
-en production, le retour à la version précédente est manuel.
-
-\textbf{Remède} — une tâche conditionnée à l'échec de la vérification,
-redéclenchant le déploiement du commit précédent ; et, sur une offre
-image-backed, un redéploiement du digest précédent, instantané puisque
-l'image est déjà construite et publiée.
-
-\subsection{Dépendance à un service tiers pour les données}
-
-La Fake Store API n'offre aucune garantie de disponibilité. La CI en est
-immunisée par MSW, mais l'application en production ne l'est pas : si l'API
-tombe, le catalogue est vide.
-
-\textbf{Remède} — à ce niveau d'enjeu, l'affichage explicite d'un état
-d'erreur, déjà implémenté, est la réponse proportionnée. Un cache côté
-serveur supposerait le service intermédiaire écarté plus haut.
-
-\subsection{Le panier n'est pas persistant}
-
-Le panier vit dans l'état applicatif et disparaît au rafraîchissement.
-
-\textbf{Remède} — sérialiser l'état du réducteur et le relire à
-l'initialisation. Le réducteur étant pur, le changement est local et
-entièrement testable sans monter de composant.
-
-\subsection{Les alertes ne notifient personne}
-
-Les règles s'évaluent et s'affichent, mais aucun canal de notification n'est
-configuré.
-
-\textbf{Remède} — un Alertmanager dans la même pile, routant vers un canal
-d'équipe. Reporté parce qu'il suppose un secret de destination, donc une
-configuration non reproductible telle quelle par un tiers — le critère qui a
-guidé tout le reste du projet.
-
-\subsection*{Ce que la chaîne enseigne en priorité}
-
-Si une seule amélioration devait être menée, ce serait la première : c'est
-la seule qui touche à une propriété de sécurité démontrable plutôt qu'à un
-confort d'exploitation. Toutes les autres ajoutent de la couverture ;
-celle-là restaure une preuve.
-
-Le second enseignement tient dans la deuxième limite. Une chaîne
-d'observabilité qui fonctionne commence par afficher des indicateurs
-dégradés — et c'est le signe qu'elle mesure quelque chose. Un tableau de
-bord toujours vert est presque toujours un tableau de bord qui ne mesure
-rien.
+Une chaîne d'observabilité qui fonctionne commence par afficher des
+indicateurs dégradés — et c'est le signe qu'elle mesure quelque chose. Un
+tableau de bord toujours vert est presque toujours un tableau de bord qui ne
+mesure rien.
 
 \end{document}
