@@ -10,6 +10,20 @@ docs/superpowers/
 # Énoncé du sujet : ce dépôt porte le livrable, pas la consigne.
 Sujet_Examen_*.pdf
 
+# Archive de commodité pour Overleaf, reconstruite à la demande. Versionnée,
+# elle deviendrait périmée à la première modification du .tex.
+docs/rapport-latex/overleaf.zip
+
+# Sous-produits de compilation LaTeX
+*.aux
+*.lof
+*.lot
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
 .env
 .env.*
 !.env.example
