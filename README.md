@@ -84,7 +84,7 @@ docker run --rm -p 8080:8080 \
   --read-only \
   --security-opt no-new-privileges \
   --cap-drop ALL \
-  --tmpfs /var/cache/nginx \
+  --tmpfs /var/cache/nginx:uid=101,gid=101 \
   examdevsecops
 
 curl http://localhost:8080/healthz     # -> ok
@@ -92,6 +92,12 @@ curl http://localhost:8080/healthz     # -> ok
 
 L'image est multi-stage, s'exécute en non-root sur le port 8080, et repose sur des images de base
 épinglées par digest.
+
+`uid=101,gid=101` n'est pas décoratif : avec la racine en lecture seule, nginx écrit son pid et ses
+fichiers temporaires dans `/var/cache/nginx`, et un `tmpfs` monté sans ces options appartient à
+root — le `chown` effectué à la construction est alors masqué par le montage, et nginx s'arrête sur
+`mkdir() "/var/cache/nginx/client" failed (13: Permission denied)`. 101 est l'uid de l'utilisateur
+`nginx` dans l'image de base.
 
 ## Stack d'observabilité
 
