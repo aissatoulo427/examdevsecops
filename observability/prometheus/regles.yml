@@ -1,0 +1,29 @@
+groups:
+  - name: disponibilite
+    rules:
+      - alert: ServiceIndisponible
+        expr: probe_success == 0
+        for: 3m
+        labels:
+          severite: critique
+        annotations:
+          resume: "Le service ne répond plus"
+          description: "La sonde échoue depuis 3 minutes sur {{ $labels.instance }}."
+
+      - alert: LatenceElevee
+        expr: probe_duration_seconds > 5
+        for: 5m
+        labels:
+          severite: avertissement
+        annotations:
+          resume: "Temps de réponse dégradé"
+          description: "La sonde dépasse 5 s depuis 5 minutes — réveil d'instance probable."
+
+      - alert: CertificatBientotExpire
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 15
+        for: 1h
+        labels:
+          severite: avertissement
+        annotations:
+          resume: "Certificat TLS proche de l'expiration"
+          description: "Moins de 15 jours restants sur {{ $labels.instance }}."

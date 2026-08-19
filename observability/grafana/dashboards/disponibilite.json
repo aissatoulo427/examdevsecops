@@ -1,0 +1,58 @@
+{
+  "title": "Disponibilité — Boutique",
+  "uid": "disponibilite-boutique",
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Disponibilité sur 24 h",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 0.95 },
+              { "color": "green", "value": 0.99 }
+            ]
+          }
+        }
+      },
+      "targets": [{ "expr": "avg_over_time(probe_success[24h])", "refId": "A" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Temps de réponse",
+      "gridPos": { "h": 6, "w": 18, "x": 6, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        { "expr": "probe_duration_seconds", "legendFormat": "total", "refId": "A" },
+        { "expr": "probe_http_duration_seconds", "legendFormat": "{{phase}}", "refId": "B" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "État de la sonde",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 6 },
+      "fieldConfig": { "defaults": { "max": 1, "min": 0 } },
+      "targets": [{ "expr": "probe_success", "legendFormat": "succès", "refId": "A" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Jours avant expiration du certificat TLS",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 6 },
+      "fieldConfig": { "defaults": { "unit": "d" } },
+      "targets": [
+        {
+          "expr": "(probe_ssl_earliest_cert_expiry - time()) / 86400",
+          "legendFormat": "jours",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

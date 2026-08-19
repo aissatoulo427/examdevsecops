@@ -19,6 +19,12 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  # URL publique de l'application. Elle vit ici et non dans une variable
+  # GitHub : ce n'est pas un secret, et une valeur portee par la
+  # configuration du depot est invisible a la lecture du code. Quand elle
+  # etait absente, le smoke test appelait curl sur "/healthz" sans hote et
+  # echouait a chaque tentative sans que la cause soit lisible.
+  APP_URL: https://examdevsecops.onrender.com
 
 jobs:
   qualite:
@@ -127,3 +133,73 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
+
+  deploiement:
+    name: Deploiement Render
+    needs: image
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # L'environnement porte le secret du deploy hook : une pull request, meme
+    # ouverte depuis un fork, ne peut ni le lire ni declencher un deploiement.
+    environment:
+      name: production
+      url: https://examdevsecops.onrender.com
+    steps:
+      # Le service Render est adosse au depot Git, pas au registre : il
+      # reconstruit l'image depuis le Dockerfile du commit courant. On ne peut
+      # donc pas lui imposer le digest scanne via imgURL, le hook repond 400.
+      #
+      # Limite assumee, a consigner dans le rapport : l'artefact mis en ligne
+      # n'est pas bit a bit celui que Trivy a scanne, seulement son equivalent
+      # reconstruit depuis la meme source. La barriere de securite tient
+      # malgre tout, puisque ce job ne s'execute que si le scan du job image a
+      # reussi sur ce meme commit.
+      - name: Declencher le deploiement Render
+        run: |
+          set -euo pipefail
+          hook="${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          if [ -z "$hook" ]; then
+            echo "Le secret RENDER_DEPLOY_HOOK_URL est vide ou inaccessible."
+            echo "Il doit exister sous ce nom exact dans l'environnement 'production',"
+            echo "en tant que secret et non en tant que variable."
+            exit 1
+          fi
+          echo "Commit deploye : ${{ github.sha }}"
+          echo "Image equivalente scannee et publiee : ghcr.io/${{ github.repository }}@${{ needs.image.outputs.digest }}"
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$hook")
+          if [ "$code" != "200" ]; then
+            echo "Le deploy hook a repondu ${code}."
+            exit 1
+          fi
+
+      # Un hook accepte est une promesse, pas une mise en ligne : sans cette
+      # verification le pipeline serait vert alors que le service est casse,
+      # exactement le cas rencontre avec les chemins temporaires nginx.
+      #
+      # Ce que la sonde prouve : le service repond 200. Ce qu'elle ne prouve
+      # pas : qu'il s'agit bien de la nouvelle version, l'ancienne restant en
+      # ligne pendant la reconstruction. Le distinguer demanderait une route
+      # exposant le commit deployé.
+      - name: Attendre la mise en ligne puis verifier
+        run: |
+          set -euo pipefail
+          # Render reconstruit l'image avant de la mettre en ligne : sonder
+          # tout de suite ne mesurerait que l'etat d'avant le deploiement.
+          sleep 90
+          for tentative in $(seq 1 40); do
+            # curl imprime deja '000' quand il echoue : un '|| echo 000'
+            # concatenerait les deux et produirait '000000'.
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 90 \
+              "${APP_URL}/healthz" 2>/dev/null || true)
+            # Forme 'if' et non '[ ... ] && ...' : sous 'set -e', un test
+            # faux en fin d'instruction interrompt le script.
+            if [ -z "$code" ]; then code="000"; fi
+            echo "Tentative ${tentative} : HTTP ${code}"
+            if [ "$code" = "200" ]; then
+              echo "Deploiement verifie."
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "Le service n'a pas repondu 200 dans le delai imparti."
+          exit 1
