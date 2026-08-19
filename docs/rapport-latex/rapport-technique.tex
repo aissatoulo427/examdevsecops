@@ -1,0 +1,863 @@
+% =====================================================================
+%  Rapport technique - Ingenierie DevSecOps
+%  Compilation : pdfLaTeX (Overleaf)
+%  Images : cherchees dans ../captures/ puis dans le dossier courant,
+%           afin de fonctionner aussi bien depuis le depot que depuis
+%           un dossier Overleaf a plat.
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+\usepackage[a4paper,margin=2.4cm]{geometry}
+
+\usepackage{graphicx}
+\graphicspath{{../captures/}{./}{captures/}}
+
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit,backgrounds,calc}
+
+% ---------------------------------------------------------------------
+%  Palette : definie avant hyperref, qui s'en sert pour les liens.
+% ---------------------------------------------------------------------
+\definecolor{bleuFonce}{HTML}{1F4E79}
+\definecolor{bleuClair}{HTML}{DEEAF6}
+\definecolor{grisFonce}{HTML}{404040}
+\definecolor{grisClair}{HTML}{F2F2F2}
+\definecolor{vertOk}{HTML}{2E7D32}
+\definecolor{rougeAlerte}{HTML}{B3261E}
+\definecolor{orangeAcc}{HTML}{B26500}
+
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=bleuFonce,
+  urlcolor=bleuFonce,
+  citecolor=bleuFonce,
+  pdftitle={Rapport technique - Ingenierie DevSecOps},
+  pdfauthor={Aissatou Lo}
+}
+
+% ---------------------------------------------------------------------
+%  Mise en page
+% ---------------------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{grisFonce}Ingénierie DevSecOps — Plateforme E-Commerce}
+\fancyhead[R]{\small\color{grisFonce}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\captionsetup{font=small,labelfont=bf}
+\setlist{itemsep=2pt,topsep=4pt}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% Fragment de code en ligne. babel-french rend ':' ';' '!' '?' actifs pour
+% inserer l'espace fine que veut la typographie francaise : correct en prose,
+% faux dans du code, ou cela produirait « @sha256 :... ». On desactive donc
+% ces raccourcis a l'interieur des fragments techniques uniquement.
+\newcommand{\code}[1]{{\shorthandoff{:;!?}\texttt{#1}}}
+
+% Encadre pour les points saillants
+\newcommand{\encadre}[2]{%
+  \begin{center}
+  \fcolorbox{bleuFonce}{bleuClair}{%
+    \begin{minipage}{0.94\linewidth}
+      \vspace{2pt}
+      \textbf{#1}\par\vspace{3pt}#2
+      \vspace{2pt}
+    \end{minipage}}
+  \end{center}}
+
+% ---------------------------------------------------------------------
+%  Style des extraits de code
+% ---------------------------------------------------------------------
+\lstdefinestyle{conf}{
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{bleuFonce}\bfseries,
+  commentstyle=\color{grisFonce}\itshape,
+  stringstyle=\color{vertOk},
+  backgroundcolor=\color{grisClair},
+  frame=single,
+  rulecolor=\color{grisFonce!40},
+  breaklines=true,
+  showstringspaces=false,
+  columns=flexible,
+  xleftmargin=8pt,
+  framexleftmargin=8pt,
+  aboveskip=10pt,
+  belowskip=10pt
+}
+\lstset{style=conf}
+
+% ---------------------------------------------------------------------
+%  Styles TikZ communs aux deux diagrammes
+% ---------------------------------------------------------------------
+\tikzset{
+  bloc/.style={
+    rectangle, rounded corners=2pt, draw=bleuFonce, fill=bleuClair,
+    text width=26mm, align=center, minimum height=11mm,
+    font=\footnotesize, inner sep=3pt},
+  blocGris/.style={bloc, draw=grisFonce, fill=grisClair},
+  blocVert/.style={bloc, draw=vertOk, fill=vertOk!10},
+  blocRouge/.style={bloc, draw=rougeAlerte, fill=rougeAlerte!8},
+  decision/.style={
+    diamond, aspect=2.2, draw=orangeAcc, fill=orangeAcc!12,
+    text width=17mm, align=center, font=\scriptsize, inner sep=1pt},
+  fleche/.style={-{Stealth[length=2mm]}, draw=grisFonce, thick},
+  flechePointillee/.style={fleche, dashed},
+  etiquette/.style={font=\scriptsize\itshape, color=grisFonce}
+}
+
+% =====================================================================
+\begin{document}
+
+% ---------------------------------------------------------------------
+%  Page de titre
+% ---------------------------------------------------------------------
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+
+{\color{grisFonce}\large EXAMEN / PROJET DEVSECOPS\par}
+\vspace{4mm}
+{\color{bleuFonce}\rule{\linewidth}{1.2pt}}
+\vspace{8mm}
+
+{\Huge\bfseries Ingénierie DevSecOps\par}
+\vspace{5mm}
+{\LARGE Déploiement d'une plateforme\\E-Commerce moderne\par}
+
+\vspace{6mm}
+{\color{bleuFonce}\rule{\linewidth}{1.2pt}}
+
+\vspace{14mm}
+{\large\itshape « Le DevOps ne se résume pas à l'automatisation de la même
+façon que l'astronomie ne se résume pas aux télescopes. »\par}
+
+\vspace{18mm}
+\begin{tabular}{rl}
+  \textbf{Auteur} & Aissatou Lo\\[3pt]
+  \textbf{Module} & DevOps / DevSecOps\\[3pt]
+  \textbf{Application} & \url{https://examdevsecops.onrender.com}\\[3pt]
+  \textbf{Dépôt} & \url{https://github.com/aissatoulo427/examdevsecops}\\[3pt]
+  \textbf{Registre} & \texttt{ghcr.io/aissatoulo427/examdevsecops}\\
+\end{tabular}
+
+\vfill
+{\color{grisFonce}\today}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% =====================================================================
+\section{Contexte et objectifs}
+% =====================================================================
+
+Le sujet demande une plateforme e-commerce moderne consommant la Fake Store
+API. Son cœur n'est pourtant pas l'application, mais \textbf{la chaîne de
+valeur} qui la porte du code source jusqu'à l'utilisateur, et le retour
+d'information qui remonte dans l'autre sens.
+
+L'application est donc restée volontairement simple — authentification,
+catalogue, panier — pour que l'effort porte là où il est évalué : le
+pipeline, la sécurité et l'observabilité. Une application riche accompagnée
+d'une chaîne pauvre répondrait à côté de la question posée.
+
+Quatre objectifs ont guidé chaque décision et servent de grille de lecture à
+l'ensemble du rapport. Chaque choix technique présenté par la suite est
+rattaché à au moins l'un d'eux.
+
+\begin{table}[htbp]
+\centering
+\begin{tabularx}{\linewidth}{@{}l X@{}}
+\toprule
+\textbf{Objectif} & \textbf{Traduction concrète} \\
+\midrule
+Vitesse & Une modification fusionnée est en ligne sans intervention manuelle ; les défauts sont signalés en secondes, pas en revue de code. \\
+Fiabilité & Un pipeline vert signifie que le service répond réellement ; il n'échoue jamais pour une cause extérieure au dépôt. \\
+Sécurité & Aucun secret dans le dépôt ni dans l'image ; rien n'est publié sans avoir été scanné au préalable. \\
+Reproductibilité & Un tiers reconstruit et exécute l'ensemble — application, pipeline, observabilité — à partir du dépôt seul. \\
+\bottomrule
+\end{tabularx}
+\caption{Les quatre objectifs directeurs}
+\end{table}
+
+Le dernier objectif est celui qui a le plus modelé l'architecture. Il impose
+que rien de ce qui fait fonctionner la chaîne ne réside en dehors du dépôt :
+ni configuration cachée, ni service à installer manuellement, ni étape
+connue du seul auteur.
+
+% =====================================================================
+\section{Architecture retenue}
+% =====================================================================
+
+\subsection{Vue d'ensemble}
+
+Une application React~19 construite par Vite, servie en fichiers statiques
+par nginx dans un conteneur durci, déployée sur une plateforme d'hébergement
+conteneurisé. Le navigateur appelle la Fake Store API \textbf{directement},
+sans backend intermédiaire. GitHub~Actions contrôle, teste, scanne,
+construit et publie l'image sur GHCR, puis déclenche le déploiement. Une
+pile Prometheus / Grafana / blackbox-exporter, exécutable localement, sonde
+l'URL publique depuis l'extérieur.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+
+  % --- Rang median : le chemin de l'utilisateur
+  \node[bloc]      (U) at ( 0,   0)   {Utilisateur\\(navigateur)};
+  \node[bloc]      (R) at ( 5,   0)   {Frontend conteneurisé\\nginx + build React};
+  \node[bloc]      (F) at (10,   0)   {Fake Store API\\\texttt{fakestoreapi.com}};
+
+  % --- Rang inferieur : la chaine de livraison
+  \node[bloc]      (G) at ( 0,  -3.5) {Pipeline CI/CD\\GitHub Actions};
+  \node[bloc]      (H) at ( 5,  -3.5) {Registre d'images\\GHCR};
+  \node[blocVert]  (O) at (10,  -3.5) {Observabilité\\Prometheus · Grafana\\blackbox};
+  \node[blocRouge] (S) at ( 0,  -6.6) {Outils de sécurité\\Gitleaks · Trivy\\SonarQube};
+
+  % --- Trafic utilisateur
+  \draw[fleche] (U) -- node[etiquette, above] {HTTPS} (R);
+  \draw[fleche] (U.north) -- (0,1.8)
+        -- node[etiquette, above] {appels API directs (HTTPS)} (10,1.8) -- (F.north);
+
+  % --- Chaine de livraison
+  \draw[fleche] (G) -- node[etiquette, left]  {exécute} (S);
+  \draw[fleche] (G) -- node[etiquette, above] {publie l'image} (H);
+  \draw[fleche] (H.north) -- node[etiquette, right] {image} (R.south);
+  \draw[fleche] (G.north) -- node[etiquette, left, pos=0.6] {deploy hook} (R.south west);
+
+  % --- Retour d'information
+  \draw[fleche] (O.north) -- node[etiquette, right] {sonde externe} (R.south east);
+
+\end{tikzpicture}
+\caption{Architecture cible. Les sept éléments demandés par le sujet
+apparaissent : utilisateur, frontend conteneurisé, API Fake Store, pipeline
+CI/CD, registre d'images, outils de sécurité et système d'observabilité.}
+\end{figure}
+
+\subsection{Le trajet d'une modification}
+
+Une modification part d'une branche et d'une pull request. La poussée
+déclenche le workflow, qui exécute d'abord le contrôle de la source : lint,
+vérification des types, tests avec seuil de couverture, détection de
+secrets, scan des dépendances, puis Quality Gate. Tant que la pull request
+est ouverte, rien n'est publié et rien n'est déployé.
+
+Si tout passe, l'image Docker est construite \emph{localement}, soumise à
+Trivy, et poussée sur GHCR seulement ensuite — et seulement depuis la
+branche principale. Après fusion, le déploiement est déclenché, puis le
+pipeline attend et vérifie que l'URL publique répond avant de se déclarer
+vert.
+
+\subsection{Décisions structurantes}
+
+\paragraph{Aucun backend.} Le navigateur appelle la Fake Store API
+directement. C'est fidèle au sujet et cela supprime une surface d'attaque
+entière : pas de service intermédiaire à construire, scanner, déployer,
+observer ni maintenir. La contrepartie est que le jeton
+d'authentification vit côté client, limite traitée en
+section~\ref{sec:securite} et reprise en conclusion.
+
+\paragraph{Frontend conteneurisé, et non site statique.} Un hébergement de
+site statique aurait été plus simple et plus rapide à mettre en ligne. Il a
+été écarté parce que le sujet demande explicitement un frontend
+\emph{conteneurisé} dans le schéma d'architecture : ce choix aurait fait
+disparaître le \texttt{Dockerfile}, le durcissement de l'image et son scan —
+c'est-à-dire une part substantielle de ce qui est évalué. Le coût assumé est
+un déploiement plus long, puisque l'image doit être reconstruite.
+
+\paragraph{Analyse de qualité confiée à un service géré.} SonarQube Cloud
+est gratuit pour les dépôts publics. Une instance auto-hébergée aurait
+imposé de gérer un serveur, sa disponibilité, ses mises à jour et des
+secrets d'authentification supplémentaires. Le service géré ramène
+l'authentification à un seul jeton et, surtout, \textbf{supprime toute
+dépendance à une infrastructure particulière} : c'est ce que le sujet entend
+par reproductible.
+
+\encadre{Conséquence directe sur la reproductibilité}{%
+La chaîne complète se rejoue à partir du dépôt seul. Aucun serveur à
+provisionner, aucune installation préalable, aucune étape connue du seul
+auteur. Un correcteur peut cloner, construire l'image, lancer la pile
+d'observabilité et lire le pipeline sans rien demander à personne.}
+
+% =====================================================================
+\section{La chaîne CI/CD étape par étape}
+% =====================================================================
+
+Un seul workflow, \texttt{.github/workflows/ci.yml}, déclenché sur pull
+request et sur poussée vers la branche principale. Trois tâches enchaînées :
+qualité, image, déploiement.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=6mm]
+
+  % --- Colonne 1 : controle de la source
+  \node[bloc] (c1) {Commit / PR};
+  \node[bloc, below=of c1] (c2) {Lint};
+  \node[bloc, below=of c2] (c3) {Vérification\\des types};
+  \node[bloc, below=of c3] (c4) {Tests\\+ couverture};
+  \node[blocRouge, below=of c4] (c5) {Gitleaks\\(secrets)};
+  \node[blocRouge, below=of c5] (c6) {Trivy \texttt{fs}\\(dépendances)};
+  \node[bloc, below=of c6] (c7) {SonarQube\\Quality Gate};
+
+  \foreach \a/\b in {c1/c2, c2/c3, c3/c4, c4/c5, c5/c6, c6/c7}
+    \draw[fleche] (\a) -- (\b);
+
+  % --- Colonne 2 : image et deploiement
+  \node[bloc, right=32mm of c2] (i1) {Build image\\(local)};
+  \node[blocRouge, below=of i1] (i2) {Trivy \texttt{image}\\(paquets système)};
+  \node[bloc, below=of i2] (i3) {Publication\\GHCR};
+  \node[decision, below=8mm of i3] (d1) {branche\\principale ?};
+  \node[bloc, below=8mm of d1] (p1) {Déploiement\\(deploy hook)};
+  \node[blocVert, below=of p1] (p2) {Vérification\\\texttt{/healthz}};
+
+  \draw[fleche] (i1) -- (i2);
+  \draw[fleche] (i2) -- (i3);
+  \draw[fleche] (i3) -- (d1);
+  \draw[fleche] (d1) -- node[etiquette, right] {oui} (p1);
+  \draw[fleche] (p1) -- (p2);
+  \node[blocGris, right=10mm of d1] (stop) {Arrêt};
+  \draw[fleche] (d1) -- node[etiquette, above] {non} (stop);
+
+  % --- Liaison entre les deux colonnes
+  \draw[fleche] (c7.east) -- ++(8mm,0) |- (i1.west);
+
+  % --- Cadres de regroupement
+  \begin{scope}[on background layer]
+    \node[draw=grisFonce!50, dashed, rounded corners, fit=(c1)(c7),
+          inner sep=4mm, label={[etiquette]above:Contrôle de la source}] {};
+    \node[draw=grisFonce!50, dashed, rounded corners, fit=(i1)(i3),
+          inner sep=4mm, label={[etiquette]above:Image}] {};
+    \node[draw=grisFonce!50, dashed, rounded corners, fit=(p1)(p2),
+          inner sep=4mm, label={[etiquette]below:Mise en ligne}] {};
+  \end{scope}
+
+\end{tikzpicture}
+\caption{Chaîne de valeur. Les étapes en rouge sont les barrières de
+sécurité ; l'étape en vert est celle qui transforme « le pipeline est vert »
+en « l'utilisateur est servi ».}
+\end{figure}
+
+\subsection{Ordre des étapes et gain visé}
+
+Les étapes sont ordonnées par \textbf{coût croissant}. Une erreur de syntaxe
+ne doit pas coûter un build d'image pour être découverte.
+
+\begin{longtable}{@{}L{3.2cm} L{2.8cm} L{1.6cm} L{6.0cm}@{}}
+\caption{Les onze étapes et leur justification}\label{tab:etapes}\\
+\toprule
+\textbf{Étape} & \textbf{Outil} & \textbf{Bloquant} & \textbf{Gain visé} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Étape} & \textbf{Outil} & \textbf{Bloquant} & \textbf{Gain visé} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Lint & oxlint & oui &
+\textit{Vitesse} — les défauts évidents sortent en secondes et ne consomment plus de temps de revue humaine. \\
+Vérification des types & \texttt{tsc} & oui &
+\textit{Fiabilité} — toute une classe d'erreurs d'exécution devient impossible à fusionner. \\
+Tests + couverture & Vitest, MSW & oui &
+\textit{Fiabilité} — le seuil empêche la couverture du cœur métier de se dégrader silencieusement. \\
+Détection de secrets & Gitleaks & oui &
+\textit{Sécurité} — un secret publié est compromis ; c'est le seul défaut qu'un correctif ultérieur ne rattrape pas. \\
+Scan des dépendances & Trivy \texttt{fs} & oui &
+\textit{Sécurité} — l'essentiel du code livré vient de \texttt{node\_modules}, pas du dépôt. \\
+Qualité et SAST & SonarQube & oui &
+\textit{Fiabilité} — une règle objective et non négociable remplace un avis en revue. \\
+Construction de l'image & Buildx + cache & oui &
+\textit{Vitesse} — le cache évite de repayer les couches inchangées. \\
+Scan de l'image & Trivy \texttt{image} & oui &
+\textit{Sécurité} — couvre les paquets système de l'image de base, invisibles au scan précédent. \\
+Publication & GHCR & — &
+\textit{Traçabilité} — chaque image porte le SHA du commit dont elle est issue. \\
+Déploiement & Deploy hook & oui &
+\textit{Vitesse} — plus aucune étape manuelle entre la fusion et la mise en ligne. \\
+Vérification & \texttt{curl /healthz} & oui &
+\textit{Fiabilité} — sans elle, le pipeline serait vert alors que le service est cassé. \\
+\end{longtable}
+
+Les deux dernières étapes ne s'exécutent que depuis la branche principale :
+une pull request est contrôlée de bout en bout, mais ne publie ni ne déploie
+rien.
+
+\subsection{Trois points d'implémentation}
+
+\paragraph{L'image est scannée avant d'être publiée, jamais l'inverse.}
+Elle est d'abord construite localement, puis soumise à Trivy, et poussée
+seulement ensuite. Publier puis scanner laisserait une image vulnérable
+téléchargeable pendant l'intervalle, aussi bref soit-il — et un registre
+public n'oublie pas ce qui y a été poussé.
+
+\paragraph{Gitleaks inspecte l'historique complet.} Cela impose
+\code{fetch-depth: 0} au checkout. Se limiter au diff de la pull request
+laisserait passer un secret introduit puis supprimé dans la même branche,
+alors qu'il reste lisible dans l'historique, donc compromis.
+
+\paragraph{Le déploiement n'est acquis qu'après vérification.} Un hook
+accepté est une promesse, pas une mise en ligne. Le pipeline attend la
+reconstruction puis sonde \texttt{/healthz} jusqu'à obtenir un
+\texttt{200}. Cette étape n'a pas été ajoutée par principe : elle vient d'un
+incident réel où nginx refusait de démarrer alors que le pipeline restait
+vert.
+
+% =====================================================================
+\section{Stratégie de sécurité}
+\label{sec:securite}
+% =====================================================================
+
+La sécurité n'est pas une étape du pipeline, c'est une propriété qui doit
+tenir à quatre niveaux distincts. Chacun a ses défaillances propres,
+qu'aucun des trois autres ne rattrape.
+
+\subsection{Niveau 1 — le code}
+
+SonarQube Cloud analyse chaque exécution et applique une Quality Gate
+bloquante : bugs, \textit{code smells}, vulnérabilités et duplication.
+\texttt{oxlint} et la vérification des types complètent en amont, sur un
+registre différent.
+
+Le point important n'est pas l'outil mais le caractère \textbf{bloquant} de
+la porte. Un rapport de qualité consultatif est lu les premières semaines
+puis ignoré ; une porte qui refuse la fusion est la seule forme de règle qui
+tienne dans la durée.
+
+\subsection{Niveau 2 — les secrets}
+
+Trois secrets seulement, et aucun dans le dépôt.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}L{4.4cm} L{3.4cm} X@{}}
+\toprule
+\textbf{Secret} & \textbf{Portée} & \textbf{Usage} \\
+\midrule
+\texttt{SONAR\_TOKEN} & dépôt & Analyse SonarQube Cloud \\
+\texttt{RENDER\_DEPLOY\_} \texttt{HOOK\_URL} & environnement \texttt{production} & Déclenchement du déploiement \\
+\texttt{GITHUB\_TOKEN} & fourni par tâche & Publication sur GHCR \\
+\bottomrule
+\end{tabularx}
+\caption{Inventaire complet des secrets}
+\end{table}
+
+La configuration Gitleaks \textbf{étend} le jeu de règles par défaut au lieu
+de le remplacer : une configuration écrite de zéro perdrait silencieusement
+les centaines de règles maintenues en amont, et une régression silencieuse
+dans un outil de sécurité est pire que son absence.
+
+Deux exclusions sont déclarées, \textbf{par valeur exacte et non par chemin
+de fichier} : la clé de projet SonarQube, publique par nature et qui doit
+être versionnée pour que le scanner la lise, et les identifiants de
+démonstration de la Fake Store API, publics et documentés par l'API
+elle-même. Exclure par chemin aurait créé des zones aveugles permanentes ;
+avec une exclusion par valeur, un véritable secret déposé dans ces mêmes
+fichiers reste détecté.
+
+Le secret de déploiement est porté par un \textbf{environnement GitHub}, et
+non par le dépôt. La différence est de nature : une pull request, y compris
+ouverte depuis un fork par un tiers, ne peut ni le lire ni déclencher de
+déploiement. Sans cela, un contributeur extérieur pourrait exfiltrer l'URL
+du hook par une simple modification du workflow.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{gitleaks-blocage.png}
+\caption{Détection de secrets bloquant le pipeline. Toutes les étapes
+antérieures sont vertes ; l'échec de Gitleaks interrompt la tâche et la
+publication de l'image n'est jamais atteinte.}
+\end{figure}
+
+\subsection{Niveau 3 — la chaîne d'approvisionnement}
+
+C'est le niveau le plus souvent négligé, et celui où une compromission est
+la plus difficile à détecter, puisque le code du dépôt reste inchangé.
+
+\begin{itemize}
+  \item \textbf{Images de base épinglées par digest} (\code{@sha256:...})
+        et non par tag. Un tag peut être redirigé vers un autre contenu ; un
+        digest est une empreinte cryptographique immuable.
+  \item \textbf{Actions GitHub épinglées par SHA de commit}, pour la même
+        raison. Une action tierce s'exécute avec l'accès au dépôt et aux
+        secrets de la tâche : c'est du code de confiance, il doit être figé
+        comme tel.
+  \item \texttt{npm ci} et non \texttt{npm install}, pour installer
+        strictement ce que verrouille \texttt{package-lock.json}.
+  \item \textbf{Trivy à deux endroits}, sur le système de fichiers et sur
+        l'image : le premier couvre les dépendances npm, le second les
+        paquets système de l'image de base.
+  \item \textbf{Permissions minimales} — lecture seule par défaut au niveau
+        du workflow, écriture de paquets uniquement sur la tâche qui publie.
+  \item \textbf{Concurrence limitée}, pour qu'une exécution ancienne ne
+        puisse pas déployer par-dessus une plus récente.
+\end{itemize}
+
+\encadre{Un compromis assumé}{%
+L'étape d'exécution applique les correctifs système publiés depuis la
+construction de l'image de base. Sans cela, l'image épinglée embarque des
+paquets dont les correctifs existent déjà en amont, et le scan bloque la
+publication. Cette instruction \textbf{affaiblit la reproductibilité bit à
+bit} — la version exacte des paquets dépend de la date de construction — au
+profit de l'application effective des correctifs. Entre une image
+parfaitement reproductible et vulnérable, et une image corrigée dont
+l'empreinte varie, le second terme a été retenu.}
+
+\subsection{Niveau 4 — l'exécution}
+
+L'image est durcie par construction : exécution \textbf{non-root}, écoute
+sur le port 8080 puisqu'un processus non privilégié ne peut se lier sous
+1024, système de fichiers racine en \textbf{lecture seule},
+\texttt{no-new-privileges}, abandon de toutes les capacités, et un
+\texttt{.dockerignore} qui empêche tout fichier d'environnement d'entrer
+dans le contexte de build.
+
+Au niveau du navigateur, nginx sert cinq en-têtes de sécurité. Le plus
+significatif est la \textit{Content-Security-Policy}, dont la directive
+\texttt{connect-src} n'autorise que l'origine et la Fake Store API :
+
+\begin{lstlisting}
+connect-src 'self' https://fakestoreapi.com
+\end{lstlisting}
+
+C'est la traduction en politique navigateur d'un fait d'architecture :
+l'application n'a qu'une seule sortie réseau légitime. Un script injecté ne
+pourrait exfiltrer de données vers aucune autre destination.
+
+Enfin, le jeton d'authentification \textbf{ne va jamais dans
+\texttt{localStorage}}. L'état applicatif fait autorité, et
+\texttt{sessionStorage} ne sert qu'à survivre à un rafraîchissement de page.
+Un \texttt{localStorage} survivrait à la fermeture de l'onglet et resterait
+lisible par tout script s'exécutant sur l'origine, bien après la fin de la
+session. Un test dédié vérifie explicitement cette propriété, pour qu'une
+régression future soit signalée par le pipeline plutôt que découverte en
+production.
+
+% =====================================================================
+\section{Stratégie de test}
+% =====================================================================
+
+\begin{table}[htbp]
+\centering
+\begin{tabularx}{\linewidth}{@{}l l X@{}}
+\toprule
+\textbf{Niveau} & \textbf{Outil} & \textbf{Ce qui est couvert} \\
+\midrule
+Unitaire & Vitest & Réducteur du panier : ajout, retrait, quantités, total, cas limites \\
+Unitaire & Vitest & Service d'authentification : succès, échec, absence du jeton dans \texttt{localStorage} \\
+Composant & Testing Library & Catalogue, formulaire de connexion, page panier, garde de route \\
+Réseau & MSW & Interception de tous les appels à la Fake Store API \\
+\bottomrule
+\end{tabularx}
+\caption{41 tests répartis sur 7 fichiers, exécutés à chaque poussée}
+\end{table}
+
+\subsection{Un seuil de couverture ciblé, et non global}
+
+Le seuil bloquant est fixé à \textbf{80\,\% de lignes et de branches sur la
+logique du panier et sur l'authentification} uniquement, sans seuil global.
+
+C'est un choix, pas un renoncement. Un seuil global élevé pousse
+mécaniquement à écrire des tests de rendu sans valeur — monter un composant,
+vérifier qu'il ne plante pas — pour atteindre un chiffre. Le résultat est
+une couverture flatteuse et une suite qui ne détecte rien. En ciblant le
+calcul d'un total et le traitement d'un jeton, le seuil protège exactement
+ce dont la régression coûte cher.
+
+Ce ciblage est rendu possible par une décision d'architecture : le panier
+est un \textbf{réducteur pur}, sans dépendance au framework ni au réseau. Il
+se teste donc directement, sans monter de composant ni simuler
+d'événements — les tests les plus rapides à écrire et les plus lents à
+casser pour de mauvaises raisons.
+
+La couverture mesurée dépasse largement le seuil, mais c'est le seuil qui
+compte : il définit ce qui est garanti dans la durée, pas ce qui se trouve
+vrai aujourd'hui.
+
+\subsection{MSW conditionne la fiabilité du pipeline}
+
+Mock Service Worker intercepte les appels au niveau de la couche réseau, et
+non en remplaçant le module client. La différence est déterminante : le code
+testé est \emph{exactement} celui qui s'exécute en production, y compris la
+construction des URL, la sérialisation et le traitement des codes d'erreur.
+Remplacer le module client reviendrait à tester le remplacement.
+
+\encadre{La raison principale est ailleurs}{%
+Sans MSW, la CI dépendrait de la disponibilité d'un service tiers gratuit.
+Un pipeline qui rougit parce que l'API distante est momentanément
+indisponible n'est pas fiable — et un pipeline non fiable produit le pire
+résultat possible : il entraîne l'équipe à relancer les échecs sans les
+lire, jusqu'au jour où l'échec est réel. MSW garantit qu'un pipeline rouge
+signifie toujours « le code a un problème », jamais « le réseau a un
+problème ».}
+
+Il permet en outre de tester ce que l'API réelle ne fournit pas à la
+demande : une erreur d'authentification, une panne réseau, une réponse
+malformée — des cas qui, sans simulation, resteraient non testés parce que
+non reproductibles.
+
+% =====================================================================
+\section{Observabilité}
+% =====================================================================
+
+La pile est livrée \textit{as-code} et démarre par une seule commande, sur
+n'importe quelle machine. Sources de données et tableau de bord sont
+\textbf{provisionnés automatiquement} : aucune création à la souris, donc un
+résultat identique partout — c'est ce qui la rend reproductible.
+
+\subsection{Ce qui est mesuré, et pourquoi}
+
+\begin{table}[htbp]
+\centering
+\begin{tabularx}{\linewidth}{@{}l X@{}}
+\toprule
+\textbf{Indicateur} & \textbf{Ce qu'il répond} \\
+\midrule
+Disponibilité & Le service a-t-il répondu, et dans quelle proportion du temps sur 24~heures ? \\
+Latence par phase & Répond-il vite, et \textbf{où} part le temps quand ce n'est pas le cas ? \\
+Validité TLS & Combien de jours avant l'expiration du certificat ? \\
+Code de réponse & Répond-il, mais mal ? \\
+\bottomrule
+\end{tabularx}
+\caption{Quatre indicateurs, quatre actions distinctes}
+\end{table}
+
+Le choix de ces quatre-là plutôt que d'une batterie plus fournie tient à un
+critère unique : \textbf{chacun débouche sur une action différente}. Une
+métrique qui ne débouche sur aucune action distincte n'est pas un
+indicateur, c'est du bruit — et le bruit est ce qui entraîne une équipe à
+ignorer ses propres alertes.
+
+La latence découpée par phase mérite une mention particulière. Un temps de
+réponse global ne dit pas quoi corriger : le même chiffre peut venir d'une
+résolution de nom lente, d'une négociation TLS coûteuse ou d'une application
+lente. Trois causes, trois remèdes.
+
+\subsection{Pourquoi une sonde externe}
+
+Une sonde interne mesure « le processus tourne ». C'est utile à
+l'ordonnanceur, qui doit décider de redémarrer ou non le conteneur, et
+l'image en contient une pour cette raison. Mais ce n'est pas ce que vit
+l'utilisateur.
+
+Entre le processus et le navigateur, il y a la résolution de nom, la
+terminaison TLS, le routage de la plateforme et sa mise en veille.
+\textbf{Chacun de ces maillons peut casser alors que le processus va
+parfaitement bien.} Une sonde interne serait alors verte pendant que le
+service est inutilisable — le pire cas possible, puisqu'elle produit de la
+confiance sans la justifier.
+
+Un second effet a pesé : une sonde externe \textbf{ne demande aucune
+modification de l'application}. Pas de point de terminaison de métriques à
+exposer, pas de bibliothèque d'instrumentation à embarquer, donc pas de
+surface d'attaque ajoutée ni de dépendance supplémentaire à scanner.
+
+\subsection{Règles d'alerte et choix des seuils}
+
+\begin{table}[htbp]
+\centering
+\begin{tabularx}{\linewidth}{@{}l l l X@{}}
+\toprule
+\textbf{Alerte} & \textbf{Condition} & \textbf{Durée} & \textbf{Justification du seuil} \\
+\midrule
+Service indisponible & sonde en échec & 3 min & Six sondes consécutives : une seule peut venir d'un incident réseau côté sonde. \\
+Latence élevée & $>$ 5 s & 5 min & Seuil haut et durée longue : le réveil d'une instance suspendue produit mécaniquement une latence d'ordre minute. \\
+Certificat TLS & $<$ 15 jours & 1 h & Laisse le temps d'intervenir si le renouvellement automatique échoue, sans alerter pendant les rotations normales. \\
+\bottomrule
+\end{tabularx}
+\caption{Trois règles, trois arbitrages entre détection tardive et fausse alerte}
+\end{table}
+
+Une alerte qui se déclenche pour un comportement attendu finit par être
+filtrée — ce qui neutralise aussi les vraies. C'est ce qui explique la durée
+de cinq minutes sur la latence.
+
+\subsection{Traitement des logs}
+
+Les journaux d'accès et d'erreur sont écrits sur la sortie standard, comme
+le veut la convention des conteneurs, et consultables nativement dans le
+tableau de bord de la plateforme d'hébergement. Dupliquer cette collecte
+n'apporterait rien au volume d'une application de démonstration, et
+ajouterait un composant à maintenir et à sécuriser.
+
+Le chemin d'évolution reste identifié pour que la décision soit réversible :
+ajouter Loki à la pile, y exporter les journaux, le déclarer comme source de
+données à côté de Prometheus, et corréler dans un même tableau de bord les
+pics de latence et les lignes de journal correspondantes. C'est cette
+dernière étape qui justifierait le coût : aujourd'hui, métriques et journaux
+vivent dans deux interfaces distinctes.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{grafana-disponibilite.png}
+\caption{Tableau de bord alimenté par des sondes réelles : disponibilité sur
+24~heures, temps de réponse décomposé par phase, état de la sonde et jours
+restants avant expiration du certificat.}
+\end{figure}
+
+\subsection{Une limite mesurée, et non masquée}
+
+L'offre gratuite suspend le service après quinze minutes sans trafic, avec
+un réveil de l'ordre de la minute. Les sondes l'enregistrent : creux de
+disponibilité et pics de latence, chacun coïncidant avec une reprise
+d'activité.
+
+\textbf{Ce n'est pas un défaut à dissimuler.} C'est le premier constat que
+produit une chaîne d'observabilité qui fonctionne réellement, et il est
+traité comme n'importe quel indicateur dégradé : constat chiffré, cause
+identifiée — elle se distingue d'une vraie panne par sa signature — et
+remède connu. Deux remèdes existent : une offre payante, qui supprime la
+suspension ; ou une requête périodique de maintien en éveil, à coût nul mais
+qui fausse l'indicateur, puisqu'il ne mesurerait plus que la sonde
+s'auto-entretient.
+
+Le premier est le bon si le service doit rendre un vrai service ; le second
+achète un tableau de bord vert au prix de la validité de la mesure. La
+limite est donc retenue telle quelle, documentée et mesurée — ce qui vaut
+mieux qu'un tableau de bord toujours vert parce qu'il ne mesure rien.
+
+% =====================================================================
+\section{Conclusion : limites actuelles et améliorations futures}
+% =====================================================================
+
+La chaîne remplit ses quatre objectifs : une modification fusionnée arrive
+en ligne sans intervention manuelle et avec une mise en ligne vérifiée ;
+onze contrôles bloquants la précèdent ; aucun secret ne réside dans le dépôt
+ni dans l'image ; et l'ensemble se rejoue depuis le dépôt seul.
+
+Elle a aussi des limites. Elles sont énoncées ici avec leur remède, parce
+qu'une limite connue et mesurée coûte toujours moins cher qu'une limite
+ignorée.
+
+\subsection{L'image déployée n'est pas bit à bit celle qui a été scannée}
+
+C'est la limite la plus importante du projet. La conception prévoyait que la
+plateforme tire l'image par son digest, établissant par empreinte
+cryptographique que l'artefact en ligne est exactement celui qui a été
+validé. Le service disponible sur l'offre gratuite est adossé au dépôt Git :
+il reconstruit l'image depuis le \texttt{Dockerfile} du commit courant et
+n'accepte pas qu'on lui impose une image précise.
+
+Ce qui subsiste : le déploiement ne s'exécute que si le scan a réussi
+\emph{sur ce même commit}, et l'image scannée est publiée sur GHCR, donc
+archivée et vérifiable. Ce qui est perdu : la preuve que l'artefact servi
+est le même objet, et non son équivalent reconstruit depuis la même source.
+
+\textbf{Remède} — un service de type \textit{image-backed}, disponible sur
+l'offre payante, restaure le déploiement par digest et rétablit la garantie
+complète, sans autre modification du pipeline.
+
+\subsection{Le service est suspendu après quinze minutes d'inactivité}
+
+Conséquence directe de l'offre gratuite, mesurée par les sondes.
+
+\textbf{Remède} — une offre payante supprime la suspension. Le contournement
+par maintien en éveil est écarté : il verdirait le tableau de bord au prix
+de la validité de la mesure.
+
+\subsection{Le jeton d'authentification vit côté client}
+
+Sans backend, le jeton est nécessairement manipulé par le navigateur. Les
+mitigations appliquées — état applicatif faisant autorité,
+\texttt{sessionStorage} plutôt que \texttt{localStorage}, politique de
+sécurité restrictive — réduisent la fenêtre d'exposition sans la fermer : un
+script injecté s'exécutant sur l'origine peut toujours lire
+\texttt{sessionStorage}.
+
+\textbf{Remède} — un service intermédiaire minimal détenant le jeton dans un
+cookie \texttt{HttpOnly}, \texttt{Secure}, \texttt{SameSite=Strict},
+inaccessible à tout script. Coût : un service supplémentaire à construire,
+scanner, déployer et observer.
+
+\subsection{Ni signature d'image ni inventaire de composants}
+
+Le pipeline scanne l'image mais ne la signe pas, et ne produit pas
+d'inventaire de ses composants. Rien n'empêcherait donc une substitution
+d'image par quelqu'un ayant accès au registre, ni ne permettrait de répondre
+rapidement à « cette image contient-elle la bibliothèque touchée par cette
+vulnérabilité ? ».
+
+\textbf{Remède} — Cosign en signature sans clé, adossée à l'identité du
+pipeline, et Syft pour un SBOM attaché à l'image, avec vérification de la
+signature avant déploiement. Deux étapes de workflow, aucun secret
+supplémentaire.
+
+\subsection{Aucun test de bout en bout}
+
+Les tests couvrent les unités et les composants, mais aucun ne pilote un
+navigateur réel sur l'application construite. Un parcours cassé par une
+modification de routage passerait les contrôles.
+
+\textbf{Remède} — Playwright sur trois parcours seulement : connexion, ajout
+au panier, calcul du total, exécutés contre le conteneur démarré dans la CI.
+Trois scénarios stables valent mieux qu'une suite exhaustive et instable,
+dont les échecs aléatoires finissent par être ignorés.
+
+\subsection{Aucun retour arrière automatique}
+
+Si une version déployée passe tous les contrôles mais se révèle défaillante
+en production, le retour à la version précédente est manuel.
+
+\textbf{Remède} — une tâche conditionnée à l'échec de la vérification,
+redéclenchant le déploiement du commit précédent ; et, sur une offre
+image-backed, un redéploiement du digest précédent, instantané puisque
+l'image est déjà construite et publiée.
+
+\subsection{Dépendance à un service tiers pour les données}
+
+La Fake Store API n'offre aucune garantie de disponibilité. La CI en est
+immunisée par MSW, mais l'application en production ne l'est pas : si l'API
+tombe, le catalogue est vide.
+
+\textbf{Remède} — à ce niveau d'enjeu, l'affichage explicite d'un état
+d'erreur, déjà implémenté, est la réponse proportionnée. Un cache côté
+serveur supposerait le service intermédiaire écarté plus haut.
+
+\subsection{Le panier n'est pas persistant}
+
+Le panier vit dans l'état applicatif et disparaît au rafraîchissement.
+
+\textbf{Remède} — sérialiser l'état du réducteur et le relire à
+l'initialisation. Le réducteur étant pur, le changement est local et
+entièrement testable sans monter de composant.
+
+\subsection{Les alertes ne notifient personne}
+
+Les règles s'évaluent et s'affichent, mais aucun canal de notification n'est
+configuré.
+
+\textbf{Remède} — un Alertmanager dans la même pile, routant vers un canal
+d'équipe. Reporté parce qu'il suppose un secret de destination, donc une
+configuration non reproductible telle quelle par un tiers — le critère qui a
+guidé tout le reste du projet.
+
+\subsection*{Ce que la chaîne enseigne en priorité}
+
+Si une seule amélioration devait être menée, ce serait la première : c'est
+la seule qui touche à une propriété de sécurité démontrable plutôt qu'à un
+confort d'exploitation. Toutes les autres ajoutent de la couverture ;
+celle-là restaure une preuve.
+
+Le second enseignement tient dans la deuxième limite. Une chaîne
+d'observabilité qui fonctionne commence par afficher des indicateurs
+dégradés — et c'est le signe qu'elle mesure quelque chose. Un tableau de
+bord toujours vert est presque toujours un tableau de bord qui ne mesure
+rien.
+
+\end{document}
