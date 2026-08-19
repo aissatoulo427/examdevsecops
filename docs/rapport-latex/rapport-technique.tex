@@ -695,21 +695,46 @@ dépendance supplémentaire à scanner.
 \begin{table}[htbp]
 \centering
 \small
-\begin{tabular}{@{}l l l l@{}}
+\begin{tabular}{@{}l l l l l@{}}
 \toprule
-\textbf{Alerte} & \textbf{Condition} & \textbf{Durée} & \textbf{Pourquoi ce seuil} \\
+\textbf{Alerte} & \textbf{Métrique} & \textbf{Seuil} & \textbf{Durée} & \textbf{Sévérité} \\
 \midrule
-Service indisponible & sonde en échec & 3 min & Six sondes : une seule peut être un aléa réseau \\
-Latence élevée       & $>$ 5 s        & 5 min & Le réveil d'instance produit une latence légitime \\
-Certificat TLS       & $<$ 15 jours   & 1 h   & Marge d'intervention si le renouvellement échoue \\
+Service indisponible & \texttt{probe\_success}     & $= 0$        & 3 min & critique \\
+Latence élevée       & \texttt{probe\_duration\_seconds} & $> 5$ s & 5 min & avertissement \\
+Certificat TLS       & \texttt{probe\_ssl\_earliest\_cert\_expiry} & $< 15$ j & 1 h & avertissement \\
 \bottomrule
 \end{tabular}
-\caption{Trois arbitrages entre détection tardive et fausse alerte}
+\caption{Les trois règles d'alerte, leurs seuils et leur durée de confirmation}
 \end{table}
 
-Chaque seuil arbitre entre détecter trop tard et alerter pour rien. Une
-alerte qui se déclenche sur un comportement attendu finit filtrée — ce qui
-neutralise aussi les vraies.
+Les expressions exactes, telles qu'elles figurent dans
+\code{observability/prometheus/regles.yml} :
+
+\begin{lstlisting}
+probe_success == 0                                        for: 3m
+probe_duration_seconds > 5                                for: 5m
+(probe_ssl_earliest_cert_expiry - time()) / 86400 < 15     for: 1h
+\end{lstlisting}
+
+\paragraph{Pourquoi ces valeurs.} L'intervalle de collecte étant de
+30~secondes, \textbf{3 minutes} représentent six sondes consécutives en
+échec : une seule peut venir d'un aléa réseau côté sonde, six ne s'expliquent
+plus par le hasard.
+
+Le seuil de latence est volontairement haut. Un service qui répond en une ou
+deux secondes est lent mais utilisable ; à \textbf{5~secondes} l'utilisateur
+suppose que c'est cassé. Sa durée de confirmation est plus longue que celle
+de l'indisponibilité pour une raison propre à cet hébergement : le réveil
+d'une instance suspendue produit mécaniquement une latence de l'ordre de la
+minute, et alerter dessus reviendrait à alerter sur un comportement attendu.
+
+\textbf{15~jours} avant expiration laissent le temps d'intervenir à la main
+si le renouvellement automatique échoue, sans déclencher d'alerte pendant les
+rotations normales ; l'heure de confirmation absorbe un aléa de collecte.
+
+Chaque seuil arbitre donc entre détecter trop tard et alerter pour rien. Une
+alerte qui se déclenche sur un comportement attendu finit filtrée — et une
+règle filtrée ne protège plus de rien, pas même des cas qu'elle visait.
 
 \subsection{Journaux}
 
