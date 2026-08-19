@@ -7,6 +7,9 @@ coverage/
 # Les livrables de l'examen restent suivis dans docs/.
 docs/superpowers/
 
+# Énoncé du sujet : ce dépôt porte le livrable, pas la consigne.
+Sujet_Examen_*.pdf
+
 .env
 .env.*
 !.env.example
