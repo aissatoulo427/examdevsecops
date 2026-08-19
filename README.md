@@ -1,4 +1,4 @@
-# Exam DevSecOps — Plateforme E-Commerce
+# Exam DevSecOps - Plateforme E-Commerce
 
 Application React conteneurisée consommant la [Fake Store API](https://fakestoreapi.com),
 accompagnée de la chaîne de valeur complète qui la porte du commit jusqu'à l'utilisateur :
